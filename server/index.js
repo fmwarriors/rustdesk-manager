@@ -174,7 +174,7 @@ app.get('/api/devices', (req, res) => {
 });
 
 app.post('/api/devices', (req, res) => {
-    const { rustdesk_id, name, password, description, group_id, color } = req.body;
+    const { rustdesk_id, name, password, description, group_id, color, os_type } = req.body;
     const lang = config.get('language') || 'es';
     const t = getTranslations(lang);
     const existing = db.getDeviceByRustdeskId(rustdesk_id);
@@ -184,18 +184,18 @@ app.post('/api/devices', (req, res) => {
         }
         return res.status(400).json({ error: 'Ya existe un equipo con este ID de RustDesk' });
     }
-    const id = db.createDevice(rustdesk_id, name, password, description, group_id, color);
+    const id = db.createDevice(rustdesk_id, name, password, description, group_id, color, os_type);
     res.json({ id, success: true });
 });
 
 app.put('/api/devices/:id', (req, res) => {
     const deviceId = parseInt(req.params.id);
-    const { rustdesk_id, name, password, description, group_id, color } = req.body;
+    const { rustdesk_id, name, password, description, group_id, color, os_type } = req.body;
     const existing = db.getDeviceByRustdeskId(rustdesk_id, deviceId);
     if (existing) {
         return res.status(400).json({ error: 'Ya existe un equipo con este ID de RustDesk' });
     }
-    db.updateDevice(deviceId, rustdesk_id, name, password, description, group_id, color);
+    db.updateDevice(deviceId, rustdesk_id, name, password, description, group_id, color, os_type);
     res.json({ success: true });
 });
 

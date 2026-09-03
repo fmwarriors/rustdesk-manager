@@ -1,14 +1,35 @@
-const { app, BrowserWindow, shell, dialog } = require('electron');
+const { app, BrowserWindow, shell, dialog, screen } = require('electron');
 const path = require('path');
+const config = require('../server/config');
 
 let mainWindow;
 let server;
 const PORT = 5050;
+const DEFAULT_BOUNDS = { width: 1400, height: 900 };
+
+function getSavedBounds() {
+    const saved = config.get('window');
+    if (!saved || typeof saved !== 'object') return null;
+
+    // Discard bounds that would open the window off any connected display
+    const displays = screen.getAllDisplays();
+    const onScreen = displays.some(d =>
+        saved.x < d.bounds.x + d.bounds.width &&
+        saved.x + saved.width > d.bounds.x &&
+        saved.y < d.bounds.y + d.bounds.height &&
+        saved.y + saved.height > d.bounds.y
+    );
+    return onScreen ? saved : null;
+}
 
 function createWindow() {
+    const saved = getSavedBounds();
+
     mainWindow = new BrowserWindow({
-        width: 1400,
-        height: 900,
+        width: saved?.width || DEFAULT_BOUNDS.width,
+        height: saved?.height || DEFAULT_BOUNDS.height,
+        x: saved?.x,
+        y: saved?.y,
         minWidth: 1000,
         minHeight: 600,
         titleBarStyle: 'hiddenInset',
@@ -31,6 +52,23 @@ function createWindow() {
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
         shell.openExternal(url);
         return { action: 'deny' };
+    });
+
+    let saveBoundsTimeout;
+    const saveBounds = () => {
+        clearTimeout(saveBoundsTimeout);
+        saveBoundsTimeout = setTimeout(() => {
+            if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isMaximized()) {
+                config.set('window', mainWindow.getBounds());
+            }
+        }, 500);
+    };
+    mainWindow.on('resize', saveBounds);
+    mainWindow.on('move', saveBounds);
+    mainWindow.on('close', () => {
+        if (mainWindow && !mainWindow.isMaximized()) {
+            config.set('window', mainWindow.getBounds());
+        }
     });
 
     mainWindow.on('closed', () => {

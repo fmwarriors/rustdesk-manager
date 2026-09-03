@@ -68,6 +68,7 @@ async function init() {
             description TEXT,
             group_id INTEGER,
             color TEXT DEFAULT '#3b82f6',
+            os_type TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_connected TIMESTAMP,
             FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL
@@ -77,6 +78,12 @@ async function init() {
         CREATE INDEX IF NOT EXISTS idx_groups_parent ON groups(parent_id);
         CREATE INDEX IF NOT EXISTS idx_groups_category ON groups(category_id);
     `);
+
+    // Migration: add os_type column to existing databases created before this field existed
+    const deviceColumns = queryAll("PRAGMA table_info(devices)");
+    if (!deviceColumns.some(c => c.name === 'os_type')) {
+        db.run('ALTER TABLE devices ADD COLUMN os_type TEXT');
+    }
 
     saveDb();
 }
@@ -223,14 +230,14 @@ function searchDevices(query) {
     `, [search, search, search]);
 }
 
-function createDevice(rustdeskId, name, password = null, description = null, groupId = null, color = '#3b82f6') {
-    return insert('INSERT INTO devices (rustdesk_id, name, password, description, group_id, color) VALUES (?, ?, ?, ?, ?, ?)',
-        [rustdeskId, name, password, description, groupId, color]);
+function createDevice(rustdeskId, name, password = null, description = null, groupId = null, color = '#3b82f6', osType = null) {
+    return insert('INSERT INTO devices (rustdesk_id, name, password, description, group_id, color, os_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [rustdeskId, name, password, description, groupId, color, osType]);
 }
 
-function updateDevice(id, rustdeskId, name, password = null, description = null, groupId = null, color = '#3b82f6') {
-    run('UPDATE devices SET rustdesk_id = ?, name = ?, password = ?, description = ?, group_id = ?, color = ? WHERE id = ?',
-        [rustdeskId, name, password, description, groupId, color, id]);
+function updateDevice(id, rustdeskId, name, password = null, description = null, groupId = null, color = '#3b82f6', osType = null) {
+    run('UPDATE devices SET rustdesk_id = ?, name = ?, password = ?, description = ?, group_id = ?, color = ?, os_type = ? WHERE id = ?',
+        [rustdeskId, name, password, description, groupId, color, osType, id]);
 }
 
 function deleteDevice(id) {
@@ -289,8 +296,8 @@ function importAll(data) {
 
     if (data.devices) {
         for (const dev of data.devices) {
-            db.run('INSERT INTO devices (id, rustdesk_id, password, name, description, group_id, color, created_at, last_connected) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [dev.id, dev.rustdesk_id, dev.password, dev.name, dev.description, dev.group_id, dev.color, dev.created_at, dev.last_connected]);
+            db.run('INSERT INTO devices (id, rustdesk_id, password, name, description, group_id, color, os_type, created_at, last_connected) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [dev.id, dev.rustdesk_id, dev.password, dev.name, dev.description, dev.group_id, dev.color, dev.os_type ?? null, dev.created_at, dev.last_connected]);
         }
     }
 

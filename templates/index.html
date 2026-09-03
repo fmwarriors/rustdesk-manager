@@ -125,7 +125,7 @@
                     </button>
                 </div>
                 <nav id="groupsList" class="px-2">
-                    <a href="#" onclick="filterByGroup(null)" class="group-item active flex items-center gap-2 px-3 py-2 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <a href="#" id="allDevicesLink" onclick="filterByGroup(null)" class="group-item active flex items-center gap-2 px-3 py-2 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
                         <i class="fas fa-th-large text-gray-400"></i>
                         <span>{{ t.all_devices }}</span>
                     </a>
@@ -179,12 +179,7 @@
                     {% endfor %}
 
                     <!-- Groups without category -->
-                    {% set uncategorized_groups = [] %}
-                    {% for group in groups %}
-                        {% if group.category_id is none %}
-                            {% set _ = uncategorized_groups.append(group) %}
-                        {% endif %}
-                    {% endfor %}
+                    {% set uncategorized_groups = groups | rejectattr('category_id') | list %}
                     {% if uncategorized_groups %}
                     <div class="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
                         <div class="px-3 py-1 flex justify-between items-center">
@@ -214,7 +209,7 @@
                     </div>
                     {% endif %}
 
-                    <a href="#" onclick="filterByGroup('null')" class="group-item flex items-center gap-2 px-3 py-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 mt-2">
+                    <a href="#" id="noGroupLink" onclick="filterByGroup('null')" class="group-item flex items-center gap-2 px-3 py-2 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 mt-2">
                         <i class="fas fa-inbox text-gray-300"></i>
                         <span>{{ t.no_group }}</span>
                     </a>
@@ -319,12 +314,25 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t.group }}</label>
-                    <select id="deviceGroup"
+                    <select id="deviceGroup" onchange="onDeviceGroupChange()"
                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
                         <option value="">{{ t.no_group }}</option>
                         {% for group in groups %}
                         <option value="{{ group.id }}">{{ group.name }}</option>
                         {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t.os_type }}</label>
+                    <select id="deviceOsType"
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                        <option value="">{{ t.os_type_placeholder }}</option>
+                        <option value="MacOS">MacOS</option>
+                        <option value="Win10">Win10</option>
+                        <option value="Win11">Win11</option>
+                        <option value="Win">Win</option>
+                        <option value="Linux">Linux</option>
                     </select>
                 </div>
 
@@ -337,8 +345,11 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t.color }}</label>
-                    <input type="color" id="deviceColor" value="#3b82f6"
-                        class="w-12 h-10 rounded cursor-pointer">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <input type="color" id="deviceColor" value="#3b82f6"
+                            class="w-12 h-10 rounded cursor-pointer flex-shrink-0">
+                        <div id="deviceColorPresets" class="flex items-center gap-1.5 flex-wrap"></div>
+                    </div>
                 </div>
             </form>
             <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
@@ -384,8 +395,11 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t.color }}</label>
-                    <input type="color" id="groupColor" value="#6366f1"
-                        class="w-12 h-10 rounded cursor-pointer">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <input type="color" id="groupColor" value="#6366f1"
+                            class="w-12 h-10 rounded cursor-pointer flex-shrink-0">
+                        <div id="groupColorPresets" class="flex items-center gap-1.5 flex-wrap"></div>
+                    </div>
                 </div>
             </form>
             <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
@@ -419,8 +433,11 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t.color }}</label>
-                    <input type="color" id="categoryColor" value="#6366f1"
-                        class="w-12 h-10 rounded cursor-pointer">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <input type="color" id="categoryColor" value="#6366f1"
+                            class="w-12 h-10 rounded cursor-pointer flex-shrink-0">
+                        <div id="categoryColorPresets" class="flex items-center gap-1.5 flex-wrap"></div>
+                    </div>
                 </div>
             </form>
             <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
@@ -693,10 +710,17 @@
 
         // Load devices and status on page load
         async function loadInitialDevices() {
-            const response = await fetch('/api/devices');
-            const devices = await response.json();
-            await loadDeviceStatus();
-            renderDevices(devices);
+            const pendingGroupFilter = sessionStorage.getItem('pendingGroupFilter');
+            if (pendingGroupFilter) {
+                sessionStorage.removeItem('pendingGroupFilter');
+                await loadDeviceStatus();
+                await applyGroupFilter(parseInt(pendingGroupFilter));
+            } else {
+                const response = await fetch('/api/devices');
+                const devices = await response.json();
+                await loadDeviceStatus();
+                renderDevices(devices);
+            }
             await checkPendingDevices();
         }
         document.addEventListener('DOMContentLoaded', loadInitialDevices);
@@ -725,12 +749,90 @@
             }, 3000);
         }
 
+        // Color presets (shared across device/group/category color pickers)
+        const COLOR_PRESETS_KEY = 'colorPresets';
+        const MAX_COLOR_PRESETS = 6;
+
+        function getColorPresets() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(COLOR_PRESETS_KEY) || '[]');
+                return Array.isArray(saved) ? saved : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveColorPresetsList(presets) {
+            localStorage.setItem(COLOR_PRESETS_KEY, JSON.stringify(presets));
+        }
+
+        function addColorPreset(inputId) {
+            const color = document.getElementById(inputId).value;
+            let presets = getColorPresets().filter(c => c.toLowerCase() !== color.toLowerCase());
+            presets.unshift(color);
+            if (presets.length > MAX_COLOR_PRESETS) presets = presets.slice(0, MAX_COLOR_PRESETS);
+            saveColorPresetsList(presets);
+            renderAllColorPresets();
+        }
+
+        function removeColorPreset(color) {
+            const presets = getColorPresets().filter(c => c.toLowerCase() !== color.toLowerCase());
+            saveColorPresetsList(presets);
+            renderAllColorPresets();
+        }
+
+        function renderColorPresets(containerId, inputId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const presets = getColorPresets();
+            container.innerHTML = presets.map(color => `
+                <button type="button" class="relative group/swatch w-6 h-6 rounded-full border border-gray-300 dark:border-gray-600"
+                    style="background-color: ${color}" title="${color}"
+                    onclick="document.getElementById('${inputId}').value='${color}'">
+                    <span onclick="event.stopPropagation(); removeColorPreset('${color}')"
+                        class="hidden group-hover/swatch:flex absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-gray-700 text-white rounded-full items-center justify-center text-[9px] leading-none">&times;</span>
+                </button>
+            `).join('') + `
+                <button type="button" onclick="addColorPreset('${inputId}')" title="${T.save_current_color}"
+                    class="w-6 h-6 rounded-full border border-dashed border-gray-400 dark:border-gray-500 text-gray-400 hover:text-indigo-600 hover:border-indigo-600 flex items-center justify-center text-xs">
+                    <i class="fas fa-plus"></i>
+                </button>
+            `;
+        }
+
+        function renderAllColorPresets() {
+            renderColorPresets('deviceColorPresets', 'deviceColor');
+            renderColorPresets('groupColorPresets', 'groupColor');
+            renderColorPresets('categoryColorPresets', 'categoryColor');
+        }
+
+        document.addEventListener('DOMContentLoaded', renderAllColorPresets);
+
         // Device Modal
+        let modalGroupsCache = [];
+
         async function openDeviceModal() {
             document.getElementById('deviceModalTitle').textContent = T.new_device_title;
             document.getElementById('deviceForm').reset();
             document.getElementById('deviceId').value = '';
-            document.getElementById('deviceColor').value = '#3b82f6';
+            document.getElementById('deviceOsType').value = '';
+
+            const gf = window.currentGroupFilter;
+            const hasGroupFilter = gf !== null && gf !== undefined && gf !== 'null' && gf !== 'unassigned';
+
+            const groups = await loadGroupsDropdown(hasGroupFilter ? gf : null);
+
+            let prefillName = '';
+            let defaultColor = '#3b82f6';
+            if (hasGroupFilter) {
+                const group = groups.find(g => g.id == gf);
+                if (group) {
+                    prefillName = group.name;
+                    defaultColor = group.color || defaultColor;
+                }
+            }
+            document.getElementById('deviceName').value = prefillName;
+            document.getElementById('deviceColor').value = defaultColor;
 
             try {
                 const configResp = await fetch('/api/config');
@@ -739,7 +841,6 @@
                 document.getElementById('devicePassword').value = defaultPwd;
             } catch (e) {}
 
-            await loadGroupsDropdown();
             document.getElementById('deviceModal').classList.remove('hidden');
             document.getElementById('deviceModal').classList.add('flex');
         }
@@ -747,9 +848,21 @@
         async function loadGroupsDropdown(selectedGroupId = null) {
             const response = await fetch('/api/groups');
             const groups = await response.json();
+            modalGroupsCache = groups;
             const select = document.getElementById('deviceGroup');
             select.innerHTML = `<option value="">${T.no_group}</option>` +
                 groups.map(g => `<option value="${g.id}" ${g.id == selectedGroupId ? 'selected' : ''}>${g.name}</option>`).join('');
+            return groups;
+        }
+
+        // When the group is (re)selected inside the modal, follow its color automatically
+        function onDeviceGroupChange() {
+            const gid = document.getElementById('deviceGroup').value;
+            if (!gid) return;
+            const group = modalGroupsCache.find(g => g.id == gid);
+            if (group) {
+                document.getElementById('deviceColor').value = group.color;
+            }
         }
 
         function closeDeviceModal() {
@@ -769,6 +882,7 @@
                 document.getElementById('devicePassword').value = device.password || '';
                 document.getElementById('deviceDescription').value = device.description || '';
                 document.getElementById('deviceColor').value = device.color || '#3b82f6';
+                document.getElementById('deviceOsType').value = device.os_type || '';
                 await loadGroupsDropdown(device.group_id);
                 document.getElementById('deviceModal').classList.remove('hidden');
                 document.getElementById('deviceModal').classList.add('flex');
@@ -783,7 +897,8 @@
                 password: document.getElementById('devicePassword').value || null,
                 group_id: document.getElementById('deviceGroup').value || null,
                 description: document.getElementById('deviceDescription').value || null,
-                color: document.getElementById('deviceColor').value
+                color: document.getElementById('deviceColor').value,
+                os_type: document.getElementById('deviceOsType').value || null
             };
 
             if (!data.name || !data.rustdesk_id) {
@@ -803,6 +918,11 @@
             if (response.ok) {
                 showToast(id ? T.device_updated : T.device_created);
                 closeDeviceModal();
+                if (data.group_id) {
+                    sessionStorage.setItem('pendingGroupFilter', data.group_id);
+                } else {
+                    sessionStorage.removeItem('pendingGroupFilter');
+                }
                 location.reload();
             } else {
                 const result = await response.json();
@@ -1191,20 +1311,26 @@
         }
 
         // Filter & Search
-        async function filterByGroup(groupId) {
+        async function applyGroupFilter(groupId) {
             window.currentGroupFilter = groupId;
             document.querySelectorAll('.group-item').forEach(el => el.classList.remove('active'));
 
             if (groupId === null) {
-                event.target.closest('.group-item').classList.add('active');
+                document.getElementById('allDevicesLink').classList.add('active');
                 document.getElementById('pageTitle').textContent = T.all_devices;
             } else if (groupId === 'null' || groupId === 'unassigned') {
-                event.target.closest('.group-item').classList.add('active');
+                const el = groupId === 'unassigned' ? document.getElementById('unassignedLink') : document.getElementById('noGroupLink');
+                if (el) el.classList.add('active');
                 document.getElementById('pageTitle').textContent = groupId === 'unassigned' ? T.unassigned : T.no_group;
             } else {
-                document.querySelector(`[data-group-id="${groupId}"]`).classList.add('active');
-                const groupName = document.querySelector(`[data-group-id="${groupId}"] span`).textContent;
-                document.getElementById('pageTitle').textContent = groupName;
+                const groupEl = document.querySelector(`[data-group-id="${groupId}"]`);
+                if (groupEl) {
+                    groupEl.classList.add('active');
+                    document.getElementById('pageTitle').textContent = groupEl.querySelector('span').textContent;
+                } else {
+                    document.getElementById('allDevicesLink').classList.add('active');
+                    document.getElementById('pageTitle').textContent = T.all_devices;
+                }
             }
 
             let url = '/api/devices';
@@ -1216,6 +1342,10 @@
             const response = await fetch(url);
             const devices = await response.json();
             renderDevices(devices);
+        }
+
+        function filterByGroup(groupId) {
+            applyGroupFilter(groupId);
         }
 
         let searchTimeout;
@@ -1317,6 +1447,10 @@
                                     ${T.col_group} ${sortIcon('group_name')}
                                     <div class="col-resizer" style="position:absolute;right:0;top:4px;bottom:4px;width:4px;background:#9ca3af;border-radius:2px;cursor:col-resize;" onmousedown="startResize(event, 'group')"></div>
                                 </th>
+                                <th class="resizable-header px-2 py-2 text-left border border-gray-200 dark:border-gray-600 cursor-pointer hover:text-gray-800 dark:hover:text-white" style="width: ${colWidths.os}px; position: relative;" data-col="os" onclick="toggleSort('os_type')">
+                                    ${T.col_os} ${sortIcon('os_type')}
+                                    <div class="col-resizer" style="position:absolute;right:0;top:4px;bottom:4px;width:4px;background:#9ca3af;border-radius:2px;cursor:col-resize;" onmousedown="startResize(event, 'os')"></div>
+                                </th>
                                 <th class="resizable-header px-2 py-2 text-left border border-gray-200 dark:border-gray-600" style="width: ${colWidths.description}px; position: relative;" data-col="description">
                                     ${T.col_description}
                                     <div class="col-resizer" style="position:absolute;right:0;top:4px;bottom:4px;width:4px;background:#9ca3af;border-radius:2px;cursor:col-resize;" onmousedown="startResize(event, 'description')"></div>
@@ -1331,6 +1465,7 @@
                                     <td class="px-2 py-2 border border-gray-200 dark:border-gray-600 font-medium text-gray-800 dark:text-white" title="${device.name}">${device.name}</td>
                                     <td class="px-2 py-2 border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 font-mono text-sm">${device.rustdesk_id}</td>
                                     <td class="px-2 py-2 border border-gray-200 dark:border-gray-600">${device.group_name ? `<span class="px-2 py-0.5 rounded text-xs" style="background-color: ${device.group_color}20; color: ${device.group_color}">${device.group_name}</span>` : '<span class="text-gray-300 dark:text-gray-600">-</span>'}</td>
+                                    <td class="px-2 py-2 border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 text-sm">${device.os_type || '<span class="text-gray-300 dark:text-gray-600">-</span>'}</td>
                                     <td class="px-2 py-2 border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 text-sm" title="${device.description || ''}">${device.description || ''}</td>
                                     <td class="px-2 py-2 border border-gray-200 dark:border-gray-600">
                                         <div class="flex items-center justify-end gap-1">
@@ -1372,13 +1507,21 @@
                             </div>
                         </div>
                         ${device.description ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">${device.description}</p>` : ''}
-                        ${device.group_name ? `
-                            <div class="mb-3">
-                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
-                                    style="background-color: ${device.group_color}20; color: ${device.group_color}">
-                                    <i class="fas fa-folder text-xs"></i>
-                                    ${device.group_name}
-                                </span>
+                        ${(device.group_name || device.os_type) ? `
+                            <div class="mb-3 flex flex-wrap gap-1.5">
+                                ${device.group_name ? `
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
+                                        style="background-color: ${device.group_color}20; color: ${device.group_color}">
+                                        <i class="fas fa-folder text-xs"></i>
+                                        ${device.group_name}
+                                    </span>
+                                ` : ''}
+                                ${device.os_type ? `
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                        <i class="fas fa-desktop text-xs"></i>
+                                        ${device.os_type}
+                                    </span>
+                                ` : ''}
                             </div>
                         ` : ''}
                         <div class="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
@@ -1457,6 +1600,7 @@
             name: 200,
             id: 110,
             group: 130,
+            os: 90,
             description: 250,
             actions: 180
         };
