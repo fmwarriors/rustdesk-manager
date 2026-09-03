@@ -35,6 +35,10 @@ npm run build:win         # compilar Windows
 npm run build:all         # compilar ambos
 ```
 
+## Desarrollo y pruebas — IMPORTANTE
+- **Antes de arrancar un servidor de pruebas** (`node server/index.js` o `npm start`) contra el puerto 5050, comprobar que `/Applications/RustDesk Manager.app` no esté ya abierta (`lsof -nP -iTCP:5050 -sTCP:LISTEN`). Si lo está, las peticiones de prueba pueden acabar sirviéndolas la app real en lugar del proceso de pruebas — sin ningún aviso — y cualquier escritura de prueba (crear equipo/grupo) se cuela en la base de datos de producción real del usuario. Pasó el 2026-09-03: un `POST` de prueba creó un equipo falso en un grupo de cliente real. Si el usuario tiene la app abierta, pedirle que la cierre antes de probar.
+- **Asimetría de rutas de datos**: `server/config.js` usa siempre `app.getPath('userData')` cuando corre bajo Electron (dev **o** empaquetado) — dev y producción comparten `config.json` (servidor API, credenciales). `server/database.js` solo usa `userData` cuando `app.isPackaged` es `true` — en modo dev (`npm start`), la base de datos de equipos es la local del repo (`rustdesk_manager.db`), aislada de producción. Por eso `npm start` es seguro para crear/borrar datos de prueba, siempre que no haya colisión de puerto con la app empaquetada (punto anterior).
+
 ## Datos de usuario (runtime, no en repo)
 - **Mac**: `~/Library/Application Support/rustdesk-manager/`
 - **Win**: `%APPDATA%\rustdesk-manager\`
