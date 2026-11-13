@@ -1,6 +1,6 @@
 # Configuración inicial
 
-Después de instalar RustDesk Manager, necesitas conectarlo con tu servidor API RustDesk.
+Después de instalar RustDesk Manager, configura el servidor de IDs para ver qué equipos están online.
 
 ## Pasos
 
@@ -9,15 +9,17 @@ Después de instalar RustDesk Manager, necesitas conectarlo con tu servidor API 
 
 | Campo | Descripción | Ejemplo |
 |-------|-------------|---------|
-| **URL del servidor** | Dirección completa de tu API | `https://rustdesk.tudominio.com:21443` |
-| **Usuario** | Usuario administrador de la API | `admin` |
-| **Contraseña** | Contraseña del usuario | `********` |
+| **Servidor de IDs** | Host de tu servidor RustDesk (hbbs). Es lo único necesario para el estado online | `rustdesk.tudominio.com` |
+| **Key RustDesk** | Clave pública de tu servidor (referencia) | `AbC123...=` |
+| **URL / Usuario / Contraseña** | Datos de la API de administración. **Opcionales**: el Manager no los necesita | — |
 
-3. Haz clic en **Probar conexión** para verificar
-4. Si la conexión es exitosa, haz clic en **Guardar**
+3. Haz clic en **Guardar**
 
-!!! success "Sincronización automática"
-    Una vez configurado, la app sincronizará automáticamente los equipos registrados en tu servidor cada 60 segundos.
+!!! success "Estado online"
+    El Manager pregunta al servidor de IDs (puerto TCP 21115) qué equipos de tu agenda están conectados. No requiere credenciales de administrador y solo consulta los IDs que tú has añadido.
+
+!!! warning "Cliente RustDesk"
+    El Manager solo lanza el RustDesk instalado en tu equipo, que debe estar configurado con tu servidor y tu key (el instalador de `deployment/` lo hace por ti).
 
 ## Ajustes adicionales
 
@@ -27,12 +29,11 @@ Selecciona tu idioma preferido: Español, English o Français.
 
 ### Contraseña por defecto
 
-Define una contraseña que se aplicará automáticamente a los nuevos equipos sincronizados.
+Define una contraseña que se propondrá para los equipos nuevos.
 
 ### Intervalos
 
-- **Sincronización**: Cada cuántos segundos consultar nuevos equipos (por defecto: 60)
-- **Estado**: Cada cuántos segundos actualizar el estado online/offline (por defecto: 30)
+- **Estado**: la app refresca el estado online/offline cada 15 segundos
 
 ## ¿No tienes servidor?
 

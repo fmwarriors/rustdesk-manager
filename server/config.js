@@ -24,15 +24,12 @@ const DEFAULT_CONFIG = {
         api_url: '',
         username: '',
         password: '',
-        rustdesk_key: ''
+        rustdesk_key: '',
+        id_server: ''
     },
     language: 'es',
-    sync: {
-        interval_seconds: 60,
-        auto_sync: true
-    },
     status: {
-        interval_seconds: 30,
+        interval_seconds: 15,
         online_threshold_seconds: 60
     },
     rustdesk: {

@@ -49,13 +49,13 @@ curl -X POST http://localhost:5050/api/devices \
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
 | GET | `/api/status` | Estado de equipos (online/offline) |
-| POST | `/api/status/refresh` | Refrescar desde servidor API |
+| POST | `/api/status/refresh` | Consultar ahora al servidor de IDs (hbbs, puerto 21115) |
 
-## Sincronización
+## Equipos sin clasificar
 
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
-| POST | `/api/sync` | Sincronizar con API RustDesk |
+| GET | `/api/sync/pending` | Número de equipos sin grupo asignado |
 
 ## Configuración
 

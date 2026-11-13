@@ -6,7 +6,7 @@ Aplicación de escritorio Electron para gestionar conexiones RustDesk, compilada
 - **Repositorio**: https://github.com/angelbonet/rustdesk-manager
 - **Fork**: https://github.com/fmwarriors/rustdesk-manager (sincronizar con `gh repo sync fmwarriors/rustdesk-manager`)
 - **Docs (GitHub Pages)**: https://angelbonet.github.io/rustdesk-manager/
-- **Versión actual**: 1.1.0
+- **Versión actual**: 1.1.1
 
 ## Stack
 - **Frontend**: HTML + Tailwind CSS + Nunjucks templates
@@ -19,6 +19,7 @@ Aplicación de escritorio Electron para gestionar conexiones RustDesk, compilada
 electron/main.js          — proceso principal Electron
 server/index.js           — servidor Express
 server/database.js        — acceso SQLite
+server/presence.js        — estado online/offline vía hbbs (TCP 21115, OnlineRequest), sin credenciales
 server/config.js          — gestión configuración
 server/i18n.js            — traducciones (es, en, fr)
 templates/index.html      — UI principal
@@ -48,7 +49,7 @@ npm run build:all         # compilar ambos
 - HTTPS: `https://rustdesk.abdatabase.com:21443`
 - Admin panel: `/_admin/` — usuario `admin`
 - Key: `yQEvgGIyApESt9heFmszb15ec9haoxwJYoznV7iU3q4=`
-- **IMPORTANTE**: NO configurar "Servidor API" en los clientes RustDesk — causa error "deadline has elapsed". La sincronización se hace solo desde RustDesk Manager.
+- **IMPORTANTE**: NO configurar "Servidor API" en los clientes RustDesk — causa error "deadline has elapsed". El estado online lo obtiene RustDesk Manager preguntando directamente a hbbs.
 
 ## Instaladores de deployment
 Cada carpeta (`mac/`, `windows/`) es autónoma y se distribuye al usuario final:

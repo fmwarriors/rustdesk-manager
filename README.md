@@ -3,7 +3,7 @@
 [![Documentation](https://img.shields.io/badge/docs-online-blue?logo=readthedocs)](https://angelbonet.github.io/rustdesk-manager/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Aplicación de escritorio para gestionar conexiones RustDesk de forma centralizada. Sincroniza automáticamente con tu servidor API de RustDesk y permite organizar equipos en categorías y grupos.
+Aplicación de escritorio para gestionar conexiones RustDesk de forma centralizada. Cada usuario construye su propia agenda de equipos (solo con los IDs que él añade), ve en tiempo real cuáles están disponibles y los organiza en categorías y grupos.
 
 **[📖 Documentación completa](https://angelbonet.github.io/rustdesk-manager/)**
 
@@ -11,8 +11,8 @@ Aplicación de escritorio para gestionar conexiones RustDesk de forma centraliza
 
 ## Características
 
-- **Sincronización automática** con servidor API RustDesk
-- **Detección de estado** online/offline en tiempo real
+- **Agenda propia**: solo aparecen los equipos que tú añades, nunca los de otros usuarios del servidor
+- **Estado online/offline** en tiempo real, consultado directamente al servidor de IDs de RustDesk (sin credenciales de administrador)
 - **Organización jerárquica** por categorías y grupos
 - **Conexión directa** con un clic (requiere RustDesk instalado)
 - **Transferencia de archivos** integrada

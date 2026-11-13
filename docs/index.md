@@ -1,13 +1,13 @@
 # RustDesk Manager
 
-Aplicación de escritorio para gestionar conexiones RustDesk de forma centralizada. Sincroniza automáticamente con tu servidor API de RustDesk y permite organizar equipos en categorías y grupos.
+Aplicación de escritorio para gestionar conexiones RustDesk de forma centralizada. Cada usuario construye su propia agenda de equipos (solo con los IDs que él añade), ve en tiempo real cuáles están disponibles y los organiza en categorías y grupos.
 
 ![RustDesk Manager](assets/logo.png)
 
 ## Características
 
-- **Sincronización automática** con servidor API RustDesk
-- **Detección de estado** online/offline en tiempo real
+- **Agenda propia**: solo aparecen los equipos que tú añades, nunca los de otros usuarios del servidor
+- **Estado online/offline** en tiempo real, consultado directamente al servidor de IDs de RustDesk (sin credenciales de administrador)
 - **Organización jerárquica** por categorías y grupos
 - **Conexión directa** con un clic (requiere RustDesk instalado)
 - **Transferencia de archivos** integrada
@@ -24,10 +24,10 @@ Para usar RustDesk Manager necesitas:
 |------------|-------------|---------------|
 | **RustDesk** | Cliente de escritorio remoto instalado en tu equipo | [rustdesk.com](https://rustdesk.com/) |
 | **Servidor RustDesk** | Servidor hbbs/hbbr (propio o público) | [Guía de instalación](servidor/index.md) |
-| **API Server** | Panel web y API REST para gestionar equipos | [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) |
+| **API Server** *(opcional)* | Panel web de administración del servidor; el Manager no lo necesita | [lejianwen/rustdesk-api](https://github.com/lejianwen/rustdesk-api) |
 
 !!! tip "¿No tienes servidor propio?"
-    Puedes usar los servidores públicos de RustDesk, pero no tendrás sincronización automática de equipos. La app funcionará solo con equipos añadidos manualmente.
+    Puedes usar los servidores públicos de RustDesk. La app funciona igual: añades tus equipos por ID y el estado online se consulta al servidor de IDs configurado.
 
 ## Empezar
 
@@ -72,7 +72,7 @@ Scripts automatizados para instalar RustDesk en equipos remotos.
 ┌─────────────────────────────────────────────────────────────────┐
 │                      RUSTDESK MANAGER                            │
 │                                                                  │
-│   Sincroniza equipos ←→ API Server                              │
+│   Consulta el estado online al servidor de IDs (hbbs)           │
 │   Organiza por categorías y grupos                              │
 │   Conecta vía cliente RustDesk local                            │
 └─────────────────────────────────────────────────────────────────┘

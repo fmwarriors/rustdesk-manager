@@ -87,6 +87,8 @@ const translations = {
         // Settings
         settings_title: 'Ajustes',
         api_server: 'Servidor API',
+        id_server: 'Servidor de IDs (para el estado online)',
+        id_server_hint: 'Opcional. Si lo dejas vacío se usa el host de la URL del servidor.',
         server_url: 'URL del servidor',
         server_url_placeholder: 'https://servidor:21114',
         username: 'Usuario',
@@ -239,6 +241,8 @@ const translations = {
         // Settings
         settings_title: 'Settings',
         api_server: 'API Server',
+        id_server: 'ID server (for online status)',
+        id_server_hint: 'Optional. If empty, the host of the server URL is used.',
         server_url: 'Server URL',
         server_url_placeholder: 'https://server:21114',
         username: 'Username',
@@ -391,6 +395,8 @@ const translations = {
         // Settings
         settings_title: 'Paramètres',
         api_server: 'Serveur API',
+        id_server: 'Serveur d\'ID (pour le statut en ligne)',
+        id_server_hint: 'Optionnel. Si vide, l\'hôte de l\'URL du serveur est utilisé.',
         server_url: 'URL du serveur',
         server_url_placeholder: 'https://serveur:21114',
         username: 'Utilisateur',

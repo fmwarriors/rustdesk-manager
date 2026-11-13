@@ -40,7 +40,7 @@ El servidor oficial no incluye panel web ni API REST. Para gestionar usuarios, v
 
 ### 3. RustDesk Manager (Este proyecto)
 
-Una aplicación de escritorio para gestionar tus conexiones de forma visual, sincronizando con el API Server.
+Una aplicación de escritorio para gestionar tus conexiones de forma visual, consultando el estado online al servidor de IDs.
 
 ## Opciones de despliegue
 

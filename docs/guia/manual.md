@@ -50,9 +50,9 @@ Los grupos contienen equipos (ej: "Oficina Madrid", "Oficina Barcelona").
 
 ## Gestión de equipos
 
-### Equipos sincronizados
+### Tu agenda
 
-Los equipos que se registran en tu servidor RustDesk aparecen automáticamente en **Sin clasificar**. Desde ahí puedes editarlos para asignarles nombre, grupo y contraseña.
+La agenda empieza vacía y contiene únicamente los equipos que tú añades. La app no importa equipos del servidor, así que nadie ve equipos que no le corresponden.
 
 ### Añadir equipo manualmente
 
@@ -90,14 +90,11 @@ Cada equipo tiene un indicador circular:
 
 | Color | Significado |
 |-------|-------------|
-| 🟢 Verde | Online (último heartbeat < 60 seg) |
-| ⚪ Gris | Offline |
-| 🟡 Amarillo | Conectando... |
+| 🟢 Verde | Online: el equipo está encendido, con RustDesk activo y conectado al servidor |
+| ⚪ Gris | Offline: apagado, sin Internet o RustDesk cerrado |
+| ◯ Círculo hueco | Desconocido: no se pudo consultar el servidor de IDs |
 
-El estado se actualiza automáticamente cada 30 segundos desde el servidor API.
-
-!!! tip "Cambio manual"
-    Haz clic en el indicador para cambiar manualmente el estado.
+El estado se consulta al abrir la app y se actualiza cada 15 segundos.
 
 ## Filtrar equipos
 

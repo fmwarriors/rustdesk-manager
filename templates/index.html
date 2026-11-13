@@ -514,32 +514,19 @@
                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
                             placeholder="{{ t.rustdesk_key_placeholder }}">
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t.id_server }}</label>
+                        <input type="text" id="settingsIdServer"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                            placeholder="rustdesk.example.com">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ t.id_server_hint }}</p>
+                    </div>
                     <button type="button" onclick="testConnection()"
                         class="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
                         <i class="fas fa-plug" id="testIcon"></i>
                         {{ t.test_connection }}
                     </button>
                     <div id="connectionStatus" class="hidden text-sm px-3 py-2 rounded-lg"></div>
-                </div>
-
-                <!-- Sincronización -->
-                <div class="space-y-4 border-t dark:border-gray-700 pt-4">
-                    <h4 class="font-medium text-gray-800 dark:text-white flex items-center gap-2">
-                        <i class="fas fa-sync text-indigo-500"></i>
-                        {{ t.sync_section }}
-                    </h4>
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-700 dark:text-gray-300">{{ t.auto_sync }}</span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="settingsAutoSync" class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                        </label>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t.sync_interval }}</label>
-                        <input type="number" id="settingsSyncInterval" min="10" max="600"
-                            class="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500">
-                    </div>
                 </div>
 
                 <!-- RustDesk -->
@@ -617,27 +604,6 @@
             }
         }
 
-        // Set device status manually
-        async function setDeviceStatus(rustdeskId, status) {
-            await fetch(`/api/status/${rustdeskId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status })
-            });
-            window.deviceStatus[rustdeskId] = status;
-            if (window.cachedDevices) {
-                renderDevices(window.cachedDevices);
-            }
-            showToast(`${T.status_updated}: ${status === 'online' ? T.status_online : T.status_offline}`);
-        }
-
-        // Toggle device status on click
-        function toggleDeviceStatus(rustdeskId) {
-            const current = window.deviceStatus[rustdeskId];
-            const newStatus = current === 'online' ? 'offline' : 'online';
-            setDeviceStatus(rustdeskId, newStatus);
-        }
-
         // Refresh status from API
         async function refreshStatus() {
             const icon = document.getElementById('refreshIcon');
@@ -685,29 +651,6 @@
             }
         }
 
-        // Sync with server
-        async function syncWithServer() {
-            const icon = document.getElementById('refreshIcon');
-            icon.classList.add('fa-spin');
-            try {
-                const response = await fetch('/api/sync', { method: 'POST' });
-                const data = await response.json();
-                if (data.new_count > 0) {
-                    showToast(`${data.new_count} ${T.new_devices_imported}`);
-                    loadInitialDevices();
-                } else {
-                    showToast(T.sync_complete);
-                }
-                await checkPendingDevices();
-                window.deviceStatus = await (await fetch('/api/status')).json();
-                renderDevices(window.cachedDevices);
-            } catch (e) {
-                console.error('Error syncing:', e);
-                showToast(T.status_update_error, 'error');
-            }
-            icon.classList.remove('fa-spin');
-        }
-
         // Load devices and status on page load
         async function loadInitialDevices() {
             const pendingGroupFilter = sessionStorage.getItem('pendingGroupFilter');
@@ -725,8 +668,8 @@
         }
         document.addEventListener('DOMContentLoaded', loadInitialDevices);
 
-        // Auto-refresh status every 30 seconds
-        setInterval(loadDeviceStatus, 30000);
+        // Auto-refresh status every 15 seconds
+        setInterval(loadDeviceStatus, 15000);
 
         // Check for new devices every 60 seconds
         setInterval(checkPendingDevices, 60000);
@@ -988,8 +931,7 @@
                 }
 
                 document.getElementById('settingsKey').value = config.server?.rustdesk_key || '';
-                document.getElementById('settingsAutoSync').checked = config.sync?.auto_sync ?? true;
-                document.getElementById('settingsSyncInterval').value = config.sync?.interval_seconds || 60;
+                document.getElementById('settingsIdServer').value = config.server?.id_server || '';
                 document.getElementById('settingsDefaultPassword').value = config.rustdesk?.default_password || '';
 
                 document.getElementById('connectionStatus').classList.add('hidden');
@@ -1054,11 +996,8 @@
                     api_url: document.getElementById('settingsApiUrl').value,
                     username: document.getElementById('settingsUsername').value,
                     password: newPassword || (hasStoredPassword ? '***' : ''),
-                    rustdesk_key: document.getElementById('settingsKey').value
-                },
-                sync: {
-                    auto_sync: document.getElementById('settingsAutoSync').checked,
-                    interval_seconds: parseInt(document.getElementById('settingsSyncInterval').value) || 60
+                    rustdesk_key: document.getElementById('settingsKey').value,
+                    id_server: document.getElementById('settingsIdServer').value.trim()
                 },
                 rustdesk: {
                     default_password: document.getElementById('settingsDefaultPassword').value
@@ -1391,18 +1330,14 @@
             }
         }
 
-        function getStatusDot(device, clickable = true) {
+        function getStatusDot(device) {
             const status = window.deviceStatus?.[device.rustdesk_id];
-            const onclick = clickable ? `onclick="toggleDeviceStatus('${device.rustdesk_id}')"` : '';
-            const cursor = clickable ? 'cursor-pointer hover:scale-125' : '';
             if (status === 'online') {
-                return `<span class="w-3 h-3 rounded-full bg-green-500 inline-block ${cursor} transition-transform" ${onclick} title="${T.status_online} - ${T.click_to_change}"></span>`;
+                return `<span class="w-3 h-3 rounded-full bg-green-500 inline-block shadow-[0_0_6px_rgba(34,197,94,0.7)]" title="${T.status_online}"></span>`;
             } else if (status === 'offline') {
-                return `<span class="w-3 h-3 rounded-full bg-gray-400 inline-block ${cursor} transition-transform" ${onclick} title="${T.status_offline} - ${T.click_to_change}"></span>`;
-            } else if (status === 'connecting') {
-                return `<span class="w-3 h-3 rounded-full bg-yellow-500 inline-block animate-pulse" title="${T.connecting}"></span>`;
+                return `<span class="w-3 h-3 rounded-full bg-gray-400 inline-block" title="${T.status_offline}"></span>`;
             }
-            return `<span class="w-3 h-3 rounded-full bg-gray-300 inline-block ${cursor} transition-transform" ${onclick} title="${T.status_unknown} - ${T.click_to_change}"></span>`;
+            return `<span class="w-3 h-3 rounded-full border-2 border-gray-300 inline-block" title="${T.status_unknown}"></span>`;
         }
 
         function renderDevices(devices) {

@@ -4,7 +4,7 @@ const fs = require('fs');
 const nunjucks = require('nunjucks');
 const db = require('./database');
 const config = require('./config');
-const api = require('./api');
+const { queryPresence } = require('./presence');
 const { getTranslations, supportedLanguages } = require('./i18n');
 
 const app = express();
@@ -22,101 +22,41 @@ nunjucks.configure(path.join(__dirname, '..', 'templates'), {
 
 // Device status cache
 let deviceStatusCache = {};
-let apiToken = null;
-let apiTokenExpires = 0;
-
-// Get API token
-async function getApiToken() {
-    if (apiToken && Date.now() < apiTokenExpires) {
-        return apiToken;
+// Host del servidor de IDs (hbbs). Si no se indica, se deduce de la URL del servidor API.
+function getIdServerHost() {
+    const server = config.get('server') || {};
+    if (server.id_server && server.id_server.trim()) {
+        return server.id_server.trim().replace(/^[a-z]+:\/\//i, '').replace(/[:/].*$/, '');
     }
-
-    const server = config.get('server');
-    if (!server?.password) return null;
-
     try {
-        const resp = await api.post(`${server.api_url}/api/login`, {
-            username: server.username,
-            password: server.password
-        });
-        if (resp.access_token) {
-            apiToken = resp.access_token;
-            apiTokenExpires = Date.now() + 1800000; // 30 min
-            return apiToken;
-        }
+        return server.api_url ? new URL(server.api_url).hostname : '';
     } catch (e) {
-        console.error('Error getting API token:', e.message);
+        return '';
     }
-    return null;
 }
 
-// Fetch peers from server
-async function fetchPeersFromServer() {
-    const token = await getApiToken();
-    if (!token) return [];
-
-    const server = config.get('server');
-    try {
-        const resp = await api.get(
-            `${server.api_url}/api/admin/peer/list?page=1&page_size=1000`,
-            { 'Api-Token': token }
-        );
-        return resp?.data?.list || [];
-    } catch (e) {
-        console.error('Error fetching peers:', e.message);
-    }
-    return [];
-}
-
-// Fetch peers status
-async function fetchPeersStatus() {
-    const peers = await fetchPeersFromServer();
-    const now = Date.now() / 1000;
-    const result = {};
-    for (const peer of peers) {
-        const lastOnline = peer.last_online_time || 0;
-        result[peer.id] = (now - lastOnline < 60) ? 'online' : 'offline';
-    }
-    return result;
-}
-
-// Sync with server
-async function syncWithServer() {
-    const peers = await fetchPeersFromServer();
-    if (!peers.length) return [];
-
-    const localIds = db.getAllRustdeskIds();
-    const newDevices = [];
-
-    for (const peer of peers) {
-        const peerId = peer.id;
-        if (peerId && !localIds.has(peerId)) {
-            const hostname = peer.hostname || '';
-            const osInfo = peer.os || '';
-            const name = hostname || `Equipo ${peerId}`;
-
-            const deviceId = db.createDeviceFromServer(peerId, name, hostname, osInfo);
-            newDevices.push({
-                id: deviceId,
-                rustdesk_id: peerId,
-                name,
-                hostname,
-                os: osInfo
-            });
-            console.log(`[SYNC] Nuevo equipo importado: ${name} (${peerId})`);
-        }
-    }
-    return newDevices;
-}
-
-// Update all device status
+// Actualiza el estado online/offline de todos los equipos de la agenda
+let statusRefreshing = null;
 async function updateAllDeviceStatus() {
-    const peersStatus = await fetchPeersStatus();
-    const devices = db.getAllDevices();
-
-    for (const device of devices) {
-        deviceStatusCache[device.rustdesk_id] = peersStatus[device.rustdesk_id] || 'unknown';
-    }
+    if (statusRefreshing) return statusRefreshing;
+    statusRefreshing = (async () => {
+        const host = getIdServerHost();
+        if (!host) return;
+        const devices = db.getAllDevices();
+        try {
+            const presence = await queryPresence(host, devices.map((d) => d.rustdesk_id));
+            const next = {};
+            for (const device of devices) {
+                next[device.rustdesk_id] = presence[device.rustdesk_id] || 'unknown';
+            }
+            deviceStatusCache = next;
+        } catch (e) {
+            // Sin respuesta del servidor: no se sabe nada, no se afirma ni online ni offline
+            console.error('Error consultando presencia:', e.message);
+            deviceStatusCache = {};
+        }
+    })().finally(() => { statusRefreshing = null; });
+    return statusRefreshing;
 }
 
 // Routes
@@ -138,21 +78,9 @@ app.get('/', (req, res) => {
     });
 });
 
-app.get('/api/status', (req, res) => {
+app.get('/api/status', async (req, res) => {
+    if (statusRefreshing) await statusRefreshing;
     res.json(deviceStatusCache);
-});
-
-app.post('/api/status/:rustdeskId', (req, res) => {
-    const { rustdeskId } = req.params;
-    const { status } = req.body;
-    deviceStatusCache[rustdeskId] = status || 'unknown';
-    res.json({ success: true });
-});
-
-app.post('/api/sync', async (req, res) => {
-    const newDevices = await syncWithServer();
-    await updateAllDeviceStatus();
-    res.json({ success: true, new_devices: newDevices, new_count: newDevices.length });
 });
 
 app.get('/api/sync/pending', (req, res) => {
@@ -185,6 +113,7 @@ app.post('/api/devices', (req, res) => {
         return res.status(400).json({ error: 'Ya existe un equipo con este ID de RustDesk' });
     }
     const id = db.createDevice(rustdesk_id, name, password, description, group_id, color, os_type);
+    updateAllDeviceStatus();
     res.json({ id, success: true });
 });
 
@@ -196,6 +125,7 @@ app.put('/api/devices/:id', (req, res) => {
         return res.status(400).json({ error: 'Ya existe un equipo con este ID de RustDesk' });
     }
     db.updateDevice(deviceId, rustdesk_id, name, password, description, group_id, color, os_type);
+    updateAllDeviceStatus();
     res.json({ success: true });
 });
 
@@ -209,7 +139,6 @@ app.post('/api/devices/:id/connect', (req, res) => {
     if (!device) return res.status(404).json({ error: 'Device not found' });
 
     db.updateLastConnected(device.id);
-    deviceStatusCache[device.rustdesk_id] = 'connecting';
 
     const rustdeskConfig = config.get('rustdesk') || {};
     const platform = process.platform;
@@ -347,8 +276,7 @@ app.post('/api/config', (req, res) => {
     }
 
     config.save(current);
-    apiToken = null;
-    apiTokenExpires = 0;
+    updateAllDeviceStatus();
     res.json({ success: true });
 });
 
@@ -417,31 +345,17 @@ app.get('/api/i18n', (req, res) => {
 });
 
 // Background tasks
-let statusInterval, syncInterval;
+let statusInterval;
 
 function startBackgroundTasks() {
-    const statusSeconds = config.get('status.interval_seconds') || 30;
-    const syncSeconds = config.get('sync.interval_seconds') || 60;
+    const statusSeconds = config.get('status.interval_seconds') || 15;
 
-    statusInterval = setInterval(async () => {
-        if (config.isConfigured()) {
-            await updateAllDeviceStatus();
-        }
-    }, statusSeconds * 1000);
-
-    syncInterval = setInterval(async () => {
-        if (config.isConfigured() && config.get('sync.auto_sync')) {
-            const newDevices = await syncWithServer();
-            if (newDevices.length) {
-                console.log(`[SYNC] ${newDevices.length} nuevos equipos importados`);
-            }
-        }
-    }, syncSeconds * 1000);
+    updateAllDeviceStatus();
+    statusInterval = setInterval(updateAllDeviceStatus, statusSeconds * 1000);
 }
 
 function stopBackgroundTasks() {
     if (statusInterval) clearInterval(statusInterval);
-    if (syncInterval) clearInterval(syncInterval);
 }
 
 // Start server
@@ -449,8 +363,8 @@ async function start() {
     await db.init();
 
     const server = config.get('server');
-    if (config.isConfigured()) {
-        console.log(`📡 Servidor API configurado: ${server?.api_url}`);
+    if (getIdServerHost()) {
+        console.log(`📡 Servidor de IDs para estado online: ${getIdServerHost()}`);
     } else {
         console.log('⚠️  Servidor no configurado - accede a Ajustes para configurar');
     }
