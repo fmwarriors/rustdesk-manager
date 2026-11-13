@@ -463,8 +463,6 @@ final class Model: ObservableObject {
             log("DRY RUN: se omite la instalación en /Applications y la configuración")
         } else {
             try privilegedInstall(staged: staged, work: work)
-            ui { self.status = "Configurando el servidor…" }
-            try writeUserConfig()
         }
 
         // 4. Obtener el ID
@@ -474,8 +472,6 @@ final class Model: ObservableObject {
             id = "000000000"
             log("DRY RUN completado correctamente (versión \(version))")
         } else {
-            // El servicio ya arrancó antes de escribir la config: reiniciar el agente para que la lea
-            _ = run("/bin/launchctl", ["kickstart", "-k", "gui/\(getuid())/com.carriez.RustDesk_server"])
             _ = run("/usr/bin/open", ["-g", "/Applications/RustDesk.app"])
             for attempt in 1...10 {
                 Thread.sleep(forTimeInterval: attempt == 1 ? 4 : 2)
@@ -502,6 +498,9 @@ final class Model: ObservableObject {
     // MARK: Instalación con privilegios
 
     private func privilegedInstall(staged: URL, work: URL) throws {
+        let cfgStaged = work.appendingPathComponent("RustDesk2.toml")
+        try renderUserConfig(to: cfgStaged)
+        let cfgDir = NSHomeDirectory() + "/Library/Preferences/com.carriez.RustDesk"
         let prefsFile = NSHomeDirectory() + "/Library/Preferences/com.carriez.RustDesk/RustDesk.toml"
         let script = """
         #!/bin/bash
@@ -511,6 +510,17 @@ final class Model: ObservableObject {
         /bin/rm -rf /Applications/RustDesk.app
         /usr/bin/ditto \(shq(staged.path)) /Applications/RustDesk.app
         /usr/bin/xattr -dr com.apple.quarantine /Applications/RustDesk.app 2>/dev/null || true
+
+        # Configuración del servidor: colocarla ANTES de arrancar nada
+        /bin/launchctl bootout system /Library/LaunchDaemons/com.carriez.RustDesk_service.plist 2>/dev/null || true
+        /bin/launchctl bootout gui/\(getuid()) /Library/LaunchAgents/com.carriez.RustDesk_server.plist 2>/dev/null || true
+        /usr/bin/pkill -f 'RustDesk.app/Contents/MacOS' 2>/dev/null || true
+        /bin/sleep 1
+        /bin/mkdir -p \(shq(cfgDir))
+        [ -f \(shq(cfgDir + "/RustDesk2.toml")) ] && /bin/cp \(shq(cfgDir + "/RustDesk2.toml")) \(shq(cfgDir + "/RustDesk2.toml.backup-" + String(Int(Date().timeIntervalSince1970)))) || true
+        /bin/cp \(shq(cfgStaged.path)) \(shq(cfgDir + "/RustDesk2.toml"))
+        /usr/sbin/chown -R \(getuid()):staff \(shq(cfgDir))
+        /bin/chmod 600 \(shq(cfgDir + "/RustDesk2.toml"))
 
         # Servicio del sistema (arranque con el Mac, acceso en la pantalla de inicio de sesión)
         /bin/launchctl bootout system /Library/LaunchDaemons/com.carriez.RustDesk_service.plist 2>/dev/null || true
@@ -582,15 +592,9 @@ final class Model: ObservableObject {
         }
     }
 
-    private func writeUserConfig() throws {
-        let fm = FileManager.default
-        let dir = fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/Preferences/com.carriez.RustDesk")
-        try fm.createDirectory(at: dir, withIntermediateDirectories: true)
-        let file = dir.appendingPathComponent("RustDesk2.toml")
-        if fm.fileExists(atPath: file.path) {
-            let stamp = Int(Date().timeIntervalSince1970)
-            try? fm.copyItem(at: file, to: dir.appendingPathComponent("RustDesk2.toml.backup-\(stamp)"))
-        }
+    /// Genera la configuración del servidor en un archivo temporal; el script con privilegios la coloca
+    /// antes de arrancar RustDesk (si se escribiera después, RustDesk la pisaría con la de por defecto).
+    private func renderUserConfig(to file: URL) throws {
         let toml = """
         rendezvous_server = '\(active.server):21116'
         nat_type = 1
@@ -606,7 +610,6 @@ final class Model: ObservableObject {
         direct-access-port = '21118'
         """
         try toml.write(to: file, atomically: true, encoding: .utf8)
-        log("Configuración del servidor escrita en \(file.path)")
     }
 
     private func sendPushover(id: String, version: String) {
