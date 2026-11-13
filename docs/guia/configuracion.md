@@ -11,7 +11,7 @@ Después de instalar RustDesk Manager, configura el servidor de IDs para ver qu�
 |-------|-------------|---------|
 | **Servidor de IDs** | Host de tu servidor RustDesk (hbbs). Es lo único necesario para el estado online | `rustdesk.tudominio.com` |
 | **Key RustDesk** | Clave pública de tu servidor (referencia) | `AbC123...=` |
-| **URL / Usuario / Contraseña** | Datos de la API de administración. **Opcionales**: el Manager no los necesita | — |
+| **URL / Usuario / Contraseña** | Datos de la API de administración (servidor `rustdesk-api`). **Opcionales**, ver [más abajo](#servidor-api-opcional) | — |
 
 3. Haz clic en **Guardar**
 
@@ -20,6 +20,17 @@ Después de instalar RustDesk Manager, configura el servidor de IDs para ver qu�
 
 !!! warning "Cliente RustDesk"
     El Manager solo lanza el RustDesk instalado en tu equipo, que debe estar configurado con tu servidor y tu key (el instalador de `deployment/` lo hace por ti).
+
+## Servidor API (opcional)
+
+Los campos **URL del servidor**, **Usuario** y **Contraseña** corresponden al panel de administración del servidor (`rustdesk-api`, por ejemplo `https://rustdesk.tudominio.com:21443`).
+
+- **Para qué sirven**: solo para el botón **Probar conexión**, que comprueba que el Manager llega a tu servidor y que las credenciales son válidas. El estado online y las conexiones **no** dependen de ellos.
+- **Si montas tu propio servidor**: rellénalos con la URL de tu panel y un usuario de administración si quieres usar *Probar conexión*. Si no, déjalos vacíos.
+- **Si eres cliente de otra persona** que te ha facilitado el servidor: déjalos **vacíos**. No necesitas credenciales de administración y no deberías tenerlas.
+
+!!! danger "No pongas el «Servidor API» en el cliente RustDesk"
+    Esta URL se rellena únicamente en el Manager. Configurarla en los ajustes de red del cliente RustDesk puede provocar el error «deadline has elapsed».
 
 ## Ajustes adicionales
 
