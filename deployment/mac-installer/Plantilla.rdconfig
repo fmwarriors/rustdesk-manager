@@ -1,0 +1,32 @@
+# ============================================================
+#  Archivo de configuración de RustDesk  (.rdconfig)
+# ============================================================
+#  1. Copia este archivo y cámbiale el nombre, p. ej.:
+#        Clínica Raga.rdconfig
+#     (la extensión debe seguir siendo .rdconfig)
+#  2. Rellena los 4 datos de abajo, a la derecha del signo =
+#     (sin comillas ni espacios de más). Las líneas que
+#     empiezan por # son comentarios: se ignoran.
+#  3. Entrega el archivo a quien va a instalar RustDesk.
+#     Esa persona solo tiene que hacer doble clic en él
+#     (o dejarlo en el Escritorio) y abrir «Instalar RustDesk».
+#
+#  Este archivo contiene la contraseña de acceso: envíalo
+#  solo a su destinatario.
+# ============================================================
+
+# Nombre que verá el usuario en pantalla (p. ej. la clínica)
+NOMBRE=
+
+# Tu servidor RustDesk: solo el nombre, sin http:// ni puerto
+SERVIDOR=
+
+# Clave pública de tu servidor (la que acaba en =)
+KEY=
+
+# Contraseña permanente con la que podrás conectar a ese equipo
+CONTRASENA=
+
+# --- Opcional: aviso Pushover con el ID del equipo al terminar ---
+#PUSHOVER_TOKEN=
+#PUSHOVER_USER=

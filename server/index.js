@@ -8,7 +8,7 @@ const { queryPresence } = require('./presence');
 const { getTranslations, supportedLanguages } = require('./i18n');
 
 const app = express();
-const PORT = 5050;
+const PORT = parseInt(process.env.RDM_PORT, 10) || 5050; // RDM_PORT solo para pruebas
 
 // Middleware
 app.use(express.json());
@@ -313,6 +313,27 @@ app.get('/api/export', async (req, res) => {
         console.error('Export error:', e);
         res.status(500).json({ error: e.message });
     }
+});
+
+// Archivo .rdconfig para el instalador de RustDesk (macOS): servidor, key y contraseña
+app.post('/api/installer-config', (req, res) => {
+    const clean = (v) => String(v || '').replace(/[\r\n]+/g, ' ').trim();
+    const name = clean(req.body?.name);
+    let server = clean(req.body?.server).replace(/^[A-Za-z]+:\/\//, '').split(/[/:]/)[0];
+    const key = clean(req.body?.key);
+    const password = clean(req.body?.password);
+
+    if (!name) return res.status(400).json({ error: 'name' });
+    if (!/^[A-Za-z0-9.-]+$/.test(server)) return res.status(400).json({ error: 'server' });
+    if (!/^[A-Za-z0-9+/=_-]+$/.test(key)) return res.status(400).json({ error: 'key' });
+    if (!password) return res.status(400).json({ error: 'password' });
+
+    const text = `# Configuración de RustDesk — ${name}\n` +
+        `# Haz doble clic en este archivo (o déjalo en el Escritorio) y abre «Instalar RustDesk».\n` +
+        `# Contiene la contraseña de acceso: envíalo solo a su destinatario.\n\n` +
+        `NOMBRE=${name}\nSERVIDOR=${server}\nKEY=${key}\nCONTRASENA=${password}\n`;
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.json({ filename: `${name.replace(/[\/:]/g, '-')}.rdconfig`, content: text });
 });
 
 app.post('/api/import', express.json({ limit: '50mb' }), async (req, res) => {

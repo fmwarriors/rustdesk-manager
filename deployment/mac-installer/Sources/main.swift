@@ -1,12 +1,14 @@
 // Instalador de RustDesk para macOS — asistente con interfaz gráfica.
 //
 // Qué hace:
+//   0. Lee el archivo de configuración .rdconfig (doble clic, Escritorio, Descargas, arrastrar o elegir).
 //   1. Comprueba el Mac (versión de macOS, Intel o Apple Silicon).
 //   2. Busca en GitHub la versión estable más reciente de RustDesk que sea compatible
 //      con ese Mac (lee LSMinimumSystemVersion del propio RustDesk.app descargado y,
 //      si no encaja, prueba con la versión anterior).
 //   3. Pide la contraseña de administrador con el diálogo nativo de macOS e instala.
-//   4. Configura el servidor/key/contraseña que lleva incrustados (installer-config.json).
+//   4. Configura el servidor/key/contraseña que vienen en el archivo .rdconfig (el instalador no lleva
+//      ningún dato: es el mismo para todos y se puede notarizar una sola vez).
 //   5. Guía al usuario para activar los permisos que macOS no permite conceder por script.
 //
 // Variables de entorno solo para pruebas:
@@ -133,26 +135,102 @@ final class Downloader: NSObject, URLSessionDownloadDelegate {
     }
 }
 
-// MARK: - Configuración incrustada
+// MARK: - Archivo de configuración (.rdconfig)
+//
+// Texto plano, una línea CLAVE=valor, con # para comentarios:
+//   NOMBRE=Clínica Raga            (se muestra en pantalla)
+//   SERVIDOR=rustdesk.ejemplo.com  (solo el host)
+//   KEY=clave_publica_del_servidor
+//   CONTRASENA=contraseña_permanente_de_acceso
+//   PUSHOVER_TOKEN= / PUSHOVER_USER=   (opcionales)
 
-struct InstallerConfig: Decodable {
-    let name: String
-    let server: String
-    let key: String
-    let password: String
-    let pushoverToken: String?
-    let pushoverUser: String?
+struct InstallerConfig {
+    var name: String
+    var server: String
+    var key: String
+    var password: String
+    var pushoverToken: String
+    var pushoverUser: String
 
-    enum CodingKeys: String, CodingKey {
-        case name, server, key, password
-        case pushoverToken = "pushover_token"
-        case pushoverUser = "pushover_user"
+    /// Devuelve la configuración o un mensaje de error en español.
+    static func parse(_ text: String) -> (config: InstallerConfig?, error: String) {
+        var values: [String: String] = [:]
+        let clean = text.replacingOccurrences(of: "\u{FEFF}", with: "")
+        for raw in clean.components(separatedBy: .newlines) {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if line.isEmpty || line.hasPrefix("#") { continue }
+            guard let eq = line.firstIndex(of: "=") else { continue }
+            let k = line[..<eq].trimmingCharacters(in: .whitespaces).uppercased()
+            var v = String(line[line.index(after: eq)...]).trimmingCharacters(in: .whitespaces)
+            if v.count >= 2, let f = v.first, let l = v.last, (f == "\"" && l == "\"") || (f == "'" && l == "'") {
+                v = String(v.dropFirst().dropLast())
+            }
+            values[k] = v
+        }
+        func get(_ names: [String]) -> String {
+            for n in names { if let v = values[n], !v.isEmpty { return v } }
+            return ""
+        }
+        var server = get(["SERVIDOR", "SERVER", "RENDEZVOUS_SERVER"])
+        let key = get(["KEY", "CLAVE"])
+        let password = get(["CONTRASENA", "CONTRASEÑA", "PASSWORD"])
+
+        // Tolerancia: si pegan una URL o un puerto, se queda solo el host.
+        server = server.replacingOccurrences(of: "^[A-Za-z]+://", with: "", options: .regularExpression)
+        server = server.components(separatedBy: CharacterSet(charactersIn: "/:")).first ?? server
+
+        if server.isEmpty { return (nil, "Falta el SERVIDOR en el archivo de configuración (¿está sin rellenar?).") }
+        if server.range(of: "^[A-Za-z0-9.-]+$", options: .regularExpression) == nil {
+            return (nil, "El SERVIDOR no es válido: debe ser solo el nombre, por ejemplo rustdesk.midominio.com.")
+        }
+        if key.isEmpty { return (nil, "Falta la KEY en el archivo de configuración.") }
+        if key.range(of: "^[A-Za-z0-9+/=_-]+$", options: .regularExpression) == nil {
+            return (nil, "La KEY no es válida: cópiala de nuevo tal cual, sin espacios.")
+        }
+        if password.isEmpty { return (nil, "Falta la CONTRASENA en el archivo de configuración.") }
+        if password.rangeOfCharacter(from: .controlCharacters) != nil {
+            return (nil, "La CONTRASENA contiene caracteres no válidos.")
+        }
+        let name = get(["NOMBRE", "NAME"])
+        return (InstallerConfig(name: name.isEmpty ? "tu proveedor de soporte" : name, server: server, key: key,
+                                password: password, pushoverToken: get(["PUSHOVER_TOKEN"]),
+                                pushoverUser: get(["PUSHOVER_USER"])), "")
     }
 
-    static func load() -> InstallerConfig? {
-        guard let url = Bundle.main.url(forResource: "installer-config", withExtension: "json"),
-              let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(InstallerConfig.self, from: data)
+    static func load(from url: URL) -> (config: InstallerConfig?, error: String) {
+        guard let data = try? Data(contentsOf: url), let text = String(data: data, encoding: .utf8) else {
+            return (nil, "No se puede leer el archivo «\(url.lastPathComponent)».")
+        }
+        return parse(text)
+    }
+
+    /// Busca un archivo .rdconfig: incrustado en la app, junto a la app (volumen del DMG),
+    /// en el Escritorio o en Descargas (el más reciente que sea válido).
+    static func find() -> (config: InstallerConfig?, source: String, error: String) {
+        let fm = FileManager.default
+        if let embedded = Bundle.main.url(forResource: "embedded", withExtension: "rdconfig") {
+            let r = load(from: embedded)
+            if let c = r.config { return (c, "incluido en el instalador", "") }
+        }
+        let home = fm.homeDirectoryForCurrentUser
+        let dirs = [Bundle.main.bundleURL.deletingLastPathComponent(),
+                    home.appendingPathComponent("Desktop"), home.appendingPathComponent("Downloads")]
+        var files: [(url: URL, date: Date)] = []
+        for d in dirs {
+            let items = (try? fm.contentsOfDirectory(at: d, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+            for u in items where u.pathExtension.lowercased() == "rdconfig" && !u.lastPathComponent.lowercased().contains("plantilla") {
+                let date = (try? u.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+                files.append((u, date))
+            }
+        }
+        files.sort { $0.date > $1.date }
+        var firstError = ""
+        for f in files {
+            let r = load(from: f.url)
+            if let c = r.config { return (c, f.url.lastPathComponent, "") }
+            if firstError.isEmpty { firstError = "«\(f.url.lastPathComponent)»: \(r.error)" }
+        }
+        return (nil, "", firstError)
     }
 }
 
@@ -188,10 +266,40 @@ final class Model: ObservableObject {
     @Published var version = ""
     @Published var errorText = ""
     @Published var permDone = [false, false, false]
+    @Published var config: InstallerConfig?
+    @Published var configSource = ""
+    @Published var configError = ""
+    @Published var dropTargeted = false
 
-    let config: InstallerConfig
+    /// Copia fija de la configuración usada durante la instalación (se lee desde otro hilo).
+    private var active = InstallerConfig(name: "", server: "", key: "", password: "", pushoverToken: "", pushoverUser: "")
 
-    init(config: InstallerConfig) { self.config = config }
+    var supportName: String { return config?.name ?? "tu proveedor de soporte" }
+
+    func findConfig() {
+        let r = InstallerConfig.find()
+        config = r.config
+        configSource = r.source
+        configError = r.error
+        log("Búsqueda de configuración: \(r.config != nil ? "encontrada (\(r.source))" : "no encontrada \(r.error)")")
+    }
+
+    func useConfig(at url: URL) {
+        let r = InstallerConfig.load(from: url)
+        config = r.config
+        configSource = r.config != nil ? url.lastPathComponent : ""
+        configError = r.config != nil ? "" : "«\(url.lastPathComponent)»: \(r.error)"
+        log("Configuración elegida: \(url.lastPathComponent) → \(r.config != nil ? "válida" : r.error)")
+    }
+
+    func chooseConfigFile() {
+        let panel = NSOpenPanel()
+        panel.title = "Elige el archivo de configuración de RustDesk"
+        panel.allowedFileTypes = ["rdconfig", "txt"]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        if panel.runModal() == .OK, let url = panel.url { useConfig(at: url) }
+    }
 
     private func ui(_ block: @escaping () -> Void) { DispatchQueue.main.async(execute: block) }
 
@@ -206,6 +314,8 @@ final class Model: ObservableObject {
     }
 
     func start() {
+        guard let cfg = config else { return }
+        active = cfg
         steps = [StepItem(title: "Comprobar tu Mac", state: 0),
                  StepItem(title: "Descargar RustDesk", state: 0),
                  StepItem(title: "Instalar y configurar", state: 0),
@@ -393,7 +503,7 @@ final class Model: ObservableObject {
         /bin/rm -rf /Applications/RustDesk.app
         /usr/bin/ditto \(shq(staged.path)) /Applications/RustDesk.app
         /usr/bin/xattr -dr com.apple.quarantine /Applications/RustDesk.app 2>/dev/null || true
-        /Applications/RustDesk.app/Contents/MacOS/RustDesk --password \(shq(config.password)) >/dev/null 2>&1 || true
+        /Applications/RustDesk.app/Contents/MacOS/RustDesk --password \(shq(active.password)) >/dev/null 2>&1 || true
         """
         let scriptURL = work.appendingPathComponent("install.sh")
         try script.write(to: scriptURL, atomically: true, encoding: .utf8)
@@ -425,16 +535,16 @@ final class Model: ObservableObject {
             try? fm.copyItem(at: file, to: dir.appendingPathComponent("RustDesk2.toml.backup-\(stamp)"))
         }
         let toml = """
-        rendezvous_server = '\(config.server):21116'
+        rendezvous_server = '\(active.server):21116'
         nat_type = 1
         serial = 0
         unlock_pin = ''
         trusted_devices = ''
 
         [options]
-        key = '\(config.key)'
-        relay-server = '\(config.server)'
-        custom-rendezvous-server = '\(config.server)'
+        key = '\(active.key)'
+        relay-server = '\(active.server)'
+        custom-rendezvous-server = '\(active.server)'
         direct-server = 'Y'
         direct-access-port = '21118'
         """
@@ -443,14 +553,14 @@ final class Model: ObservableObject {
     }
 
     private func sendPushover(id: String, version: String) {
-        guard let token = config.pushoverToken, !token.isEmpty,
-              let user = config.pushoverUser, !user.isEmpty, !isDryRun else { return }
+        let token = active.pushoverToken, user = active.pushoverUser
+        guard !token.isEmpty, !user.isEmpty, !isDryRun else { return }
         let host = Host.current().localizedName ?? ProcessInfo.processInfo.hostName
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd HH:mm"
         let message = "ID: \(id)\nEquipo: \(host)\nVersión: \(version)\nFecha: \(df.string(from: Date()))"
         _ = run("/usr/bin/curl", ["-s", "-F", "token=\(token)", "-F", "user=\(user)",
-                                  "-F", "title=RustDesk instalado: \(host) (\(config.name))",
+                                  "-F", "title=RustDesk instalado: \(host) (\(active.name))",
                                   "-F", "message=\(message)", "https://api.pushover.net/1/messages.json"])
     }
 
@@ -549,6 +659,18 @@ struct ContentView: View {
         }
         .frame(width: 600, height: 500)
         .background(Color(NSColor.windowBackgroundColor))
+        .overlay(RoundedRectangle(cornerRadius: 6)
+            .stroke(Color.accentColor, lineWidth: model.dropTargeted ? 4 : 0))
+        .onDrop(of: ["public.file-url"], isTargeted: $model.dropTargeted) { providers in
+            guard let p = providers.first else { return false }
+            p.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
+                var url: URL?
+                if let data = item as? Data { url = URL(dataRepresentation: data, relativeTo: nil) }
+                else if let u = item as? URL { url = u }
+                if let url = url { DispatchQueue.main.async { model.useConfig(at: url) } }
+            }
+            return true
+        }
     }
 
     var header: some View {
@@ -558,7 +680,7 @@ struct ContentView: View {
                 .frame(width: 56, height: 56)
             VStack(alignment: .leading, spacing: 3) {
                 Text("Instalación de RustDesk").font(.system(size: 22, weight: .semibold))
-                Text("Soporte remoto · \(model.config.name)").font(.system(size: 13)).foregroundColor(.secondary)
+                Text("Soporte remoto · \(model.supportName)").font(.system(size: 13)).foregroundColor(.secondary)
             }
             Spacer()
         }
@@ -568,8 +690,14 @@ struct ContentView: View {
 
     // Bienvenida
     var welcome: some View {
+        Group {
+            if model.config != nil { welcomeReady } else { welcomeMissing }
+        }
+    }
+
+    var welcomeReady: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Vamos a instalar y configurar RustDesk en este Mac para que \(model.config.name) pueda ayudarte a distancia. Solo te llevará un par de minutos.")
+            Text("Vamos a instalar y configurar RustDesk en este Mac para que \(model.supportName) pueda ayudarte a distancia. Solo te llevará un par de minutos.")
                 .font(.system(size: 14))
                 .fixedSize(horizontal: false, vertical: true)
             NumberRow(number: "1", title: "Preparación automática",
@@ -581,8 +709,38 @@ struct ContentView: View {
             Spacer()
             HStack {
                 Button("Salir") { NSApp.terminate(nil) }
+                Text("Configuración: \(model.configSource)").font(.system(size: 11)).foregroundColor(.secondary)
+                Button("Usar otro archivo…") { model.chooseConfigFile() }
                 Spacer()
                 Button("Instalar") { model.start() }.defaultAction()
+            }
+        }
+    }
+
+    var welcomeMissing: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Falta el archivo de configuración")
+                .font(.system(size: 18, weight: .semibold))
+            Text("Este instalador es igual para todos y no lleva datos de ningún servidor. Necesita el archivo de configuración (.rdconfig) que te ha enviado quien te da soporte.")
+                .font(.system(size: 13)).foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("•  Haz doble clic en el archivo .rdconfig, o")
+                Text("•  déjalo en el Escritorio o en Descargas y pulsa «Buscar de nuevo», o")
+                Text("•  arrástralo a esta ventana, o elígelo con el botón de abajo.")
+            }
+            .font(.system(size: 13))
+            if !model.configError.isEmpty {
+                Text(model.configError)
+                    .font(.system(size: 13)).foregroundColor(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            HStack {
+                Button("Salir") { NSApp.terminate(nil) }
+                Spacer()
+                Button("Buscar de nuevo") { model.findConfig() }
+                Button("Elegir archivo…") { model.chooseConfigFile() }.defaultAction()
             }
         }
     }
@@ -652,7 +810,7 @@ struct ContentView: View {
     var done: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("✓ Todo listo").font(.system(size: 22, weight: .semibold)).foregroundColor(.green)
-            Text("RustDesk \(model.version) está instalado y conectado al servidor de \(model.config.name).")
+            Text("RustDesk \(model.version) está instalado y conectado al servidor de \(model.supportName).")
                 .font(.system(size: 14))
                 .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 6) {
@@ -699,22 +857,36 @@ struct ContentView: View {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow?
-    var model: Model?
+    let model = Model()
+    private var openedFile = false
+
+    /// Doble clic en un archivo .rdconfig (o arrastrarlo al icono de la app).
+    func application(_ sender: NSApplication, openFile filename: String) -> Bool {
+        openedFile = true
+        model.useConfig(at: URL(fileURLWithPath: filename))
+        return true
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
         let env = ProcessInfo.processInfo.environment
-        let config = InstallerConfig.load()
-            ?? InstallerConfig(name: "tu proveedor", server: "", key: "", password: "", pushoverToken: nil, pushoverUser: nil)
+        let args = CommandLine.arguments
+
+        // Comprobación de un archivo desde la terminal: InstaladorRustDesk --check archivo.rdconfig
+        if let i = args.firstIndex(of: "--check"), i + 1 < args.count {
+            let r = InstallerConfig.load(from: URL(fileURLWithPath: args[i + 1]))
+            if let c = r.config { print("OK  nombre=\(c.name)  servidor=\(c.server)"); exit(0) }
+            print("ERROR  \(r.error)"); exit(1)
+        }
 
         if let dir = env["RDI_SNAPSHOT"] {
-            snapshots(into: dir, config: config)
+            snapshots(into: dir)
             NSApp.terminate(nil)
             return
         }
 
-        let model = Model(config: config)
-        self.model = model
+        if !openedFile { model.findConfig() }
+
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 500),
                          styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
         w.title = "Instalar RustDesk"
@@ -724,12 +896,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
         window = w
 
-        if InstallerConfig.load() == nil {
-            model.errorText = "Este instalador no incluye los datos del servidor. Solicita uno nuevo a quien te lo ha enviado."
-            model.phase = .failed
-        } else if env["RDI_AUTOSTART"] == "1" {
-            model.start()
-        }
+        if env["RDI_AUTOSTART"] == "1" { model.start() }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { return true }
@@ -745,10 +912,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Genera una imagen PNG de cada pantalla (para revisión visual, sin mostrar ventanas).
-    private func snapshots(into dir: String, config: InstallerConfig) {
+    private func snapshots(into dir: String) {
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         let cases: [(String, (Model) -> Void)] = [
             ("1-bienvenida", { _ in }),
+            ("1b-sin-archivo", { m in m.config = nil; m.configError = "«config.rdconfig»: Falta la CONTRASENA en el archivo de configuración." }),
             ("2-instalando", { m in
                 m.steps = [StepItem(title: "Comprobar tu Mac", state: 2), StepItem(title: "Descargar RustDesk", state: 1),
                            StepItem(title: "Instalar y configurar", state: 0), StepItem(title: "Obtener tu ID", state: 0)]
@@ -758,7 +926,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ("5-error", { m in m.errorText = "Has cancelado la petición de contraseña, así que RustDesk no se ha instalado. Pulsa «Reintentar» cuando quieras continuar."; m.phase = .failed })
         ]
         for (name, setup) in cases {
-            let m = Model(config: config)
+            let m = Model()
+            m.config = InstallerConfig(name: "Clínica Ejemplo", server: "rustdesk.ejemplo.com", key: "x", password: "x", pushoverToken: "", pushoverUser: "")
+            m.configSource = "Clínica Ejemplo.rdconfig"
             setup(m)
             let view = NSHostingView(rootView: ContentView(model: m))
             view.frame = NSRect(x: 0, y: 0, width: 600, height: 500)

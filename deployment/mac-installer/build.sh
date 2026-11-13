@@ -1,9 +1,10 @@
 #!/bin/bash
 #
-# Genera el instalador de RustDesk para macOS (DMG con app asistente) para un destinatario.
+# Genera el instalador de RustDesk para macOS: un DMG genérico (app asistente + Plantilla.rdconfig)
+# que NO lleva datos de ningún servidor; se configura con un archivo .rdconfig.
 #
-# Uso:   ./build.sh clientes/mi-cliente.json
-# Salida: dist/Instalar RustDesk - <nombre>.dmg
+# Uso:   ./build.sh                    → dist/Instalar RustDesk.dmg   (el normal, el mismo para todos)
+#        ./build.sh cliente.rdconfig   → dist/Instalar RustDesk - <nombre>.dmg con el archivo incrustado
 #
 # Variables opcionales:
 #   SIGN_IDENTITY   hash o nombre del certificado "Developer ID Application"
@@ -13,8 +14,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-CONFIG="${1:-}"
-[ -n "$CONFIG" ] && [ -f "$CONFIG" ] || { echo "Uso: $0 clientes/<cliente>.json  (ver clientes/ejemplo.json.example)"; exit 1; }
+# Opcional: un .rdconfig para incrustarlo (instalador "de un solo destinatario", sin pedir archivo).
+EMBED="${1:-}"
+if [ -n "$EMBED" ]; then
+    [ -f "$EMBED" ] || { echo "No existe $EMBED"; exit 1; }
+fi
 
 SIGN_IDENTITY="${SIGN_IDENTITY:-7FDEB7677B3CEA58578C79C08AD693D0084B2991}"   # Innovaorto AIE (54HHDMD6T8)
 NOTARY_PROFILE="${NOTARY_PROFILE:-notary}"
@@ -23,20 +27,10 @@ SWIFTC="$XCODE_BIN/swiftc"
 [ -x "$SWIFTC" ] || SWIFTC="$(xcrun --find swiftc)"   # /Library/Developer/Toolchains puede traer Swift antiguos
 SDK="$(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun --show-sdk-path)"
 
-# --- Validar configuración (evita romper el TOML o el shell del instalador) ---
-field() { /usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get(sys.argv[2],""))' "$CONFIG" "$1"; }
-NAME="$(field name)"; SERVER="$(field server)"; KEY="$(field key)"; PASSWORD="$(field password)"
-[ -n "$NAME" ] || { echo "Falta 'name' en $CONFIG"; exit 1; }
-[[ "$SERVER" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "'server' debe ser solo un host (sin http://, puerto ni espacios): '$SERVER'"; exit 1; }
-[[ "$KEY" =~ ^[A-Za-z0-9+/=_-]+$ ]] || { echo "'key' contiene caracteres no válidos"; exit 1; }
-[ -n "$PASSWORD" ] || { echo "Falta 'password' en $CONFIG"; exit 1; }
-SAFE_NAME="$(echo "$NAME" | tr -cd 'A-Za-z0-9 ._&-')"
-[ -n "$SAFE_NAME" ] || SAFE_NAME="cliente"
-
 APP_NAME="Instalar RustDesk"
 OUT="dist"
 APP="$OUT/$APP_NAME.app"
-DMG="$OUT/Instalar RustDesk - $SAFE_NAME.dmg"
+DMG="$OUT/Instalar RustDesk.dmg"
 BUILD="$(mktemp -d)"
 trap 'rm -rf "$BUILD"' EXIT
 rm -rf "$APP" "$DMG"; mkdir -p "$OUT"
@@ -49,7 +43,7 @@ echo "==> Montando $APP_NAME.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 lipo -create "$BUILD/arm64" "$BUILD/x86_64" -output "$APP/Contents/MacOS/InstaladorRustDesk"
 cp ../../build/icon.icns "$APP/Contents/Resources/icon.icns"
-cp "$CONFIG" "$APP/Contents/Resources/installer-config.json"
+[ -n "$EMBED" ] && cp "$EMBED" "$APP/Contents/Resources/embedded.rdconfig"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -65,6 +59,12 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>10.15</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
+  <key>CFBundleDocumentTypes</key><array><dict>
+    <key>CFBundleTypeName</key><string>Configuración de RustDesk</string>
+    <key>CFBundleTypeExtensions</key><array><string>rdconfig</string></array>
+    <key>CFBundleTypeRole</key><string>Viewer</string>
+    <key>LSHandlerRank</key><string>Owner</string>
+  </dict></array>
 </dict></plist>
 PLIST
 
@@ -73,10 +73,12 @@ codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP"
 codesign --verify --strict --verbose=1 "$APP"
 
 echo "==> Creando DMG"
+STAGE="$BUILD/dmg"; mkdir -p "$STAGE"; cp -R "$APP" "$STAGE/"; cp Plantilla.rdconfig "$STAGE/"
 create-dmg --volname "Instalar RustDesk" \
-  --window-pos 200 160 --window-size 520 340 --icon-size 110 \
-  --icon "$APP_NAME.app" 260 150 --hide-extension "$APP_NAME.app" \
-  "$DMG" "$APP" >/dev/null
+  --window-pos 200 160 --window-size 560 340 --icon-size 110 \
+  --icon "$APP_NAME.app" 150 150 --hide-extension "$APP_NAME.app" \
+  --icon "Plantilla.rdconfig" 410 150 \
+  "$DMG" "$STAGE" >/dev/null
 codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG"
 
 if [ "${SKIP_NOTARIZE:-0}" != "1" ] && xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
@@ -90,4 +92,4 @@ fi
 
 echo
 echo "Listo: $DMG"
-echo "Destinatario: $NAME · servidor: $SERVER · notarizado: $NOTARIZED"
+echo "Notarizado: $NOTARIZED"

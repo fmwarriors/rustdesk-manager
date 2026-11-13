@@ -1,30 +1,42 @@
-# Instalador de RustDesk para macOS (asistente gráfico)
+# Instalador de RustDesk para macOS (asistente gráfico + archivo de configuración)
 
-App firmada dentro de un DMG que instala y configura RustDesk con el servidor del destinatario.
-Sustituye a `deployment/mac/` (script `.command`, que se mantiene como alternativa).
+Un **único instalador, igual para todos y sin ningún dato dentro** (se firma y notariza una sola vez),
+más un **archivo de configuración `.rdconfig`** por destinatario, parecido a un archivo de licencia:
+lleva el servidor, la key y la contraseña. Sustituye a `deployment/mac/` (script `.command`).
 
-## Qué ve el usuario
-1. **Bienvenida** — explica en tres puntos qué va a pasar.
-2. **Instalación** — comprueba el Mac, descarga la versión de RustDesk compatible, pide la contraseña
-   de administrador con el diálogo nativo de macOS, instala y configura el servidor.
-3. **Permisos** — guía para activar Accesibilidad, Grabación de pantalla y Monitorización de entrada
-   (macOS no permite concederlos por script) con botones que abren cada panel de Ajustes del Sistema.
-4. **Listo** — muestra el ID del equipo y permite copiarlo.
+## Para quien instala (usuario final)
+1. Abrir el DMG y arrastrar **Instalar RustDesk** donde quiera (o ejecutarlo desde el DMG).
+2. Hacer **doble clic en el archivo `.rdconfig`** que le han enviado
+   (o dejarlo en el Escritorio / Descargas, o arrastrarlo a la ventana, o elegirlo con un botón).
+3. Pulsar **Instalar**, escribir la contraseña de su Mac cuando macOS la pida y activar los tres
+   permisos que el asistente le indica (Accesibilidad, Grabación de pantalla, Monitorización de entrada).
 
-## Generar un instalador para un destinatario
-```bash
-cp clientes/ejemplo.json.example clientes/mi-cliente.json   # rellenar name, server, key, password
-./build.sh clientes/mi-cliente.json
-# → dist/Instalar RustDesk - <nombre>.dmg
+## Para quien da el soporte: crear el `.rdconfig`
+- **Desde RustDesk Manager** (lo más fácil): Ajustes → *Archivo para el instalador de RustDesk* →
+  escribir el nombre → *Crear archivo .rdconfig*. Usa el servidor de IDs, la Key y la contraseña por
+  defecto que ya tienes en Ajustes (rellénalos antes).
+- **Una línea de terminal:** `./nueva_config.sh "Clínica Raga" rustdesk.midominio.com CLAVE= contraseña`
+- **A mano:** copiar `Plantilla.rdconfig` (viene en el DMG), cambiarle el nombre y rellenar 4 líneas:
+
 ```
-Cada DMG lleva **sus datos incrustados** (servidor, key y contraseña permanente de acceso): no es un
-instalador genérico, no lo publiques. `clientes/*.json` y `dist/` están en `.gitignore`.
+NOMBRE=Clínica Raga
+SERVIDOR=rustdesk.midominio.com
+KEY=clave_publica_del_servidor=
+CONTRASENA=contraseña_de_acceso
+```
+(`#` = comentario. `PUSHOVER_TOKEN` / `PUSHOVER_USER` opcionales: aviso con el ID al terminar.)
+El archivo contiene la contraseña: envíalo solo a su destinatario. Los `.rdconfig` están en `.gitignore`.
 
-Campos: `name` (se muestra en pantalla), `server` (solo host, sin `http://` ni puerto), `key`, `password`,
-y opcionales `pushover_token` / `pushover_user` (aviso con ID y equipo al terminar).
+El instalador comprueba el archivo y explica cualquier error en pantalla (servidor mal escrito, falta la
+key…). Desde terminal: `InstaladorRustDesk --check archivo.rdconfig`.
+
+## Dónde busca el archivo (por este orden)
+Incrustado en la app (opcional) → el que se abre con doble clic / se arrastra → misma carpeta que la app
+(p. ej. el DMG) → Escritorio → Descargas (el más reciente que sea válido). Al mirar Escritorio/Descargas
+macOS puede mostrar su aviso de acceso a esas carpetas; con doble clic o arrastrando no aparece.
 
 ## Qué versión de RustDesk instala
-Consulta GitHub (versiones estables con DMG para la arquitectura del Mac, de la más reciente a la más
+Consulta GitHub (versiones estables con DMG para la arquitectura del Mac, de más reciente a más
 antigua), descarga, lee `LSMinimumSystemVersion` del `RustDesk.app` y verifica su firma. Si el macOS del
 Mac no llega, prueba la siguiente. Valores medidos (2026-11):
 
@@ -36,25 +48,28 @@ Mac no llega, prueba la siguiente. Valores medidos (2026-11):
 
 Si GitHub no responde a la API, usa las versiones de reserva 1.4.9 y 1.3.2.
 
-## Notarización (para que macOS no avise de «desarrollador no verificado»)
-Una sola vez, con un Apple ID y una contraseña específica de app (appleid.apple.com → Seguridad):
+## Compilar el instalador
 ```bash
-xcrun notarytool store-credentials "notary" --apple-id TU_APPLE_ID --team-id 54HHDMD6T8
+./build.sh                    # → dist/Instalar RustDesk.dmg  (app + Plantilla.rdconfig)
+./build.sh cliente.rdconfig   # opcional: incrusta ese archivo (no pide nada al usuario)
 ```
-`build.sh` detecta el perfil y notariza + grapa el DMG automáticamente. Sin perfil, genera el DMG solo
-firmado (se abre con clic derecho → Abrir). `SKIP_NOTARIZE=1` fuerza saltarlo.
-
-## Requisitos de compilación
-Xcode (el script usa el `swiftc` de Xcode: en `/Library/Developer/Toolchains` hay Swift antiguos que
+Requisitos: Xcode (el script usa su `swiftc`: en `/Library/Developer/Toolchains` hay Swift antiguos que
 `xcrun` puede preferir), `create-dmg` (`brew install create-dmg`) y un certificado
-*Developer ID Application* en el llavero (`SIGN_IDENTITY` para elegir otro).
-El instalador corre en macOS 10.15+ (Intel) y 11+ (Apple Silicon).
+*Developer ID Application* (`SIGN_IDENTITY` para elegir otro). Corre en macOS 10.15+ (Intel) y 11+ (Apple Silicon).
+
+### Notarización
+`build.sh` notariza y grapa si encuentra el perfil de `notarytool` (`NOTARY_PROFILE`, por defecto `notary`;
+`SKIP_NOTARIZE=1` para saltarla). Sin notarizar, macOS avisa de «desarrollador no verificado» (clic derecho → Abrir).
+Crear el perfil una vez: `xcrun notarytool store-credentials "notary" --apple-id <ID> --team-id <TEAM>`
+(contraseña específica de app de appleid.apple.com). Si Apple responde **403 «agreement missing or expired»**,
+hay que aceptar el acuerdo vigente en developer.apple.com/account.
 
 ## Pruebas sin instalar nada
 ```bash
 RDI_DRY_RUN=1 RDI_AUTOSTART=1 "dist/Instalar RustDesk.app/Contents/MacOS/InstaladorRustDesk"
 RDI_DRY_RUN=1 RDI_AUTOSTART=1 RDI_FAKE_OS=11.5 ...     # simula otro macOS
-RDI_SNAPSHOT=/ruta/capturas ...                         # genera PNG de cada pantalla
+RDI_SNAPSHOT=/ruta/capturas ...                         # PNG de cada pantalla
+open -n --env RDI_DRY_RUN=1 --env RDI_AUTOSTART=1 -a "/ruta/Instalar RustDesk.app" archivo.rdconfig
 ```
-El registro está en `~/Library/Logs/RustDeskInstaller.log` (nunca incluye contraseñas).
-La instalación real **sobrescribe** `/Applications/RustDesk.app` y `RustDesk2.toml` (hace copia de este último).
+Registro: `~/Library/Logs/RustDeskInstaller.log` (nunca incluye contraseñas).
+La instalación real **sobrescribe** `/Applications/RustDesk.app` y `RustDesk2.toml` (copia de este último).

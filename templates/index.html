@@ -564,6 +564,24 @@
                     </div>
                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ t.export_data_desc }}</p>
                 </div>
+
+                <!-- Archivo para el instalador de RustDesk -->
+                <div class="space-y-3 border-t dark:border-gray-700 pt-4">
+                    <h4 class="font-medium text-gray-800 dark:text-white flex items-center gap-2">
+                        <i class="fas fa-file-signature text-indigo-500"></i>
+                        {{ t.installer_cfg_title }}
+                    </h4>
+                    <div class="flex gap-3">
+                        <input type="text" id="installerCfgName" placeholder="{{ t.installer_cfg_name }}"
+                            class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500">
+                        <button type="button" onclick="createInstallerConfig()"
+                            class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2 px-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition flex items-center gap-2 whitespace-nowrap">
+                            <i class="fas fa-file-download"></i>
+                            {{ t.installer_cfg_btn }}
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t.installer_cfg_hint }}</p>
+                </div>
             </form>
             <div class="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
                 <button onclick="closeSettingsModal()"
@@ -1037,6 +1055,41 @@
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
                 showToast(T.export_success);
+            } catch (e) {
+                showToast(T.settings_save_error, 'error');
+            }
+        }
+
+        // Crear archivo .rdconfig para el instalador de RustDesk (con los valores del formulario)
+        async function createInstallerConfig() {
+            const idServer = document.getElementById('settingsIdServer').value.trim();
+            const body = {
+                name: document.getElementById('installerCfgName').value,
+                server: idServer || document.getElementById('settingsApiUrl').value,
+                key: document.getElementById('settingsKey').value,
+                password: document.getElementById('settingsDefaultPassword').value
+            };
+            try {
+                const response = await fetch('/api/installer-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    showToast(T['installer_cfg_err_' + data.error] || T.settings_save_error, 'error');
+                    return;
+                }
+                const blob = new Blob([data.content], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = data.filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast(T.installer_cfg_ok);
             } catch (e) {
                 showToast(T.settings_save_error, 'error');
             }

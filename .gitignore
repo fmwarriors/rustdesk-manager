@@ -37,6 +37,7 @@ RustDeskManager_ProductionAssets.zip
 # MkDocs build
 site/
 
-# Instalador de macOS: configuraciones por cliente (contienen contraseñas) y salida
-deployment/mac-installer/clientes/*.json
+# Instalador de macOS: los .rdconfig llevan contraseñas (solo se versiona la plantilla) y la salida
+*.rdconfig
+!deployment/mac-installer/Plantilla.rdconfig
 deployment/mac-installer/dist/
