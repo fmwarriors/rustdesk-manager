@@ -31,6 +31,11 @@ sudo rm -rf /var/root/Library/Preferences/com.carriez.RustDesk \
             /var/root/Library/Logs/RustDesk /Library/Logs/RustDesk
 
 echo "- Borrando ajustes, logs y cachés del usuario…"
+# (sudo: RustDesk crea algunas carpetas como root dentro de los logs del usuario)
+sudo rm -rf "$H/Library/Logs/RustDesk" "$H/Library/Preferences/com.carriez.RustDesk"
+rm -f "$H/Library/Logs/RustDeskInstaller.log" "$H/Library/Logs/DiagnosticReports"/RustDesk-*.ips \
+      "$H/Library/Application Support/CrashReporter"/RustDesk_*.plist
+rm -rf "$H/Library/Caches/com.abdatabase.rustdesk-installer" "$H/Library/HTTPStorages/com.abdatabase.rustdesk-installer"
 rm -rf "$H/Library/Preferences/com.carriez.RustDesk" \
        "$H/Library/Preferences/com.carriez.RustDesk.plist" \
        "$H/Library/Logs/RustDesk" \
