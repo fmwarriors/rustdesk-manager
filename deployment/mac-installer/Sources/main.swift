@@ -474,6 +474,8 @@ final class Model: ObservableObject {
             id = "000000000"
             log("DRY RUN completado correctamente (versión \(version))")
         } else {
+            // El servicio ya arrancó antes de escribir la config: reiniciar el agente para que la lea
+            _ = run("/bin/launchctl", ["kickstart", "-k", "gui/\(getuid())/com.carriez.RustDesk_server"])
             _ = run("/usr/bin/open", ["-g", "/Applications/RustDesk.app"])
             for attempt in 1...10 {
                 Thread.sleep(forTimeInterval: attempt == 1 ? 4 : 2)
@@ -483,6 +485,11 @@ final class Model: ObservableObject {
             }
         }
         log("ID: \(id.isEmpty ? "no disponible" : id)")
+        if !isDryRun {
+            let toml = (try? String(contentsOfFile: NSHomeDirectory() + "/Library/Preferences/com.carriez.RustDesk/RustDesk.toml", encoding: .utf8)) ?? ""
+            let hasPwd = toml.split(separator: "\n").contains { $0.hasPrefix("password") && $0.count > 14 }
+            log("Contraseña permanente guardada: \(hasPwd ? "sí" : "NO")")
+        }
         sendPushover(id: id, version: version)
 
         ui {
@@ -495,6 +502,7 @@ final class Model: ObservableObject {
     // MARK: Instalación con privilegios
 
     private func privilegedInstall(staged: URL, work: URL) throws {
+        let prefsFile = NSHomeDirectory() + "/Library/Preferences/com.carriez.RustDesk/RustDesk.toml"
         let script = """
         #!/bin/bash
         set -e
@@ -503,7 +511,56 @@ final class Model: ObservableObject {
         /bin/rm -rf /Applications/RustDesk.app
         /usr/bin/ditto \(shq(staged.path)) /Applications/RustDesk.app
         /usr/bin/xattr -dr com.apple.quarantine /Applications/RustDesk.app 2>/dev/null || true
-        /Applications/RustDesk.app/Contents/MacOS/RustDesk --password \(shq(active.password)) >/dev/null 2>&1 || true
+
+        # Servicio del sistema (arranque con el Mac, acceso en la pantalla de inicio de sesión)
+        /bin/launchctl bootout system /Library/LaunchDaemons/com.carriez.RustDesk_service.plist 2>/dev/null || true
+        /bin/launchctl bootout gui/\(getuid()) /Library/LaunchAgents/com.carriez.RustDesk_server.plist 2>/dev/null || true
+        /bin/cat > /Library/LaunchDaemons/com.carriez.RustDesk_service.plist <<'PLIST'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>Label</key><string>com.carriez.RustDesk_service</string>
+            <key>AssociatedBundleIdentifiers</key><string>com.carriez.rustdesk</string>
+            <key>KeepAlive</key><true/>
+            <key>ThrottleInterval</key><integer>1</integer>
+            <key>ProgramArguments</key><array><string>/Applications/RustDesk.app/Contents/MacOS/service</string></array>
+            <key>RunAtLoad</key><true/>
+            <key>WorkingDirectory</key><string>/Applications/RustDesk.app/Contents/MacOS/</string>
+            <key>StandardErrorPath</key><string>/var/log/rustdesk_service.err</string>
+            <key>StandardOutPath</key><string>/var/log/rustdesk_service.out</string>
+        </dict>
+        </plist>
+        PLIST
+        /bin/cat > /Library/LaunchAgents/com.carriez.RustDesk_server.plist <<'PLIST'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>Label</key><string>com.carriez.RustDesk_server</string>
+            <key>AssociatedBundleIdentifiers</key><string>com.carriez.rustdesk</string>
+            <key>LimitLoadToSessionType</key><array><string>LoginWindow</string><string>Aqua</string></array>
+            <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/><key>AfterInitialDemand</key><false/></dict>
+            <key>ThrottleInterval</key><integer>1</integer>
+            <key>RunAtLoad</key><true/>
+            <key>ProgramArguments</key><array><string>/Applications/RustDesk.app/Contents/MacOS/RustDesk</string><string>--server</string></array>
+            <key>WorkingDirectory</key><string>/Applications/RustDesk.app/Contents/MacOS/</string>
+            <key>ProcessType</key><string>Interactive</string>
+        </dict>
+        </plist>
+        PLIST
+        /usr/sbin/chown root:wheel /Library/LaunchDaemons/com.carriez.RustDesk_service.plist /Library/LaunchAgents/com.carriez.RustDesk_server.plist
+        /bin/chmod 644 /Library/LaunchDaemons/com.carriez.RustDesk_service.plist /Library/LaunchAgents/com.carriez.RustDesk_server.plist
+        /bin/launchctl bootstrap system /Library/LaunchDaemons/com.carriez.RustDesk_service.plist 2>/dev/null || true
+        /bin/launchctl bootstrap gui/\(getuid()) /Library/LaunchAgents/com.carriez.RustDesk_server.plist 2>/dev/null || true
+
+        # La contraseña permanente solo se puede fijar con el servicio ya en marcha: reintentar hasta que quede guardada
+        for i in $(/usr/bin/seq 1 20); do
+            /bin/sleep 2
+            /Applications/RustDesk.app/Contents/MacOS/RustDesk --password \(shq(active.password)) >/dev/null 2>&1 || true
+            LEN=$(/usr/bin/grep -E '^password' \(shq(prefsFile)) 2>/dev/null | /usr/bin/awk -F'= ' '{print length($2)}')
+            [ "${LEN:-0}" -gt 2 ] && break
+        done
         """
         let scriptURL = work.appendingPathComponent("install.sh")
         try script.write(to: scriptURL, atomically: true, encoding: .utf8)
