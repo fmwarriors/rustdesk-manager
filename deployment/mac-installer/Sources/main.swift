@@ -505,7 +505,7 @@ final class Model: ObservableObject {
         let script = """
         #!/bin/bash
         set -e
-        /usr/bin/pkill -f 'RustDesk.app/Contents/MacOS/RustDesk' 2>/dev/null || true
+        /usr/bin/pkill -f '/Applications/RustDesk.app/Contents/MacOS/RustDesk' 2>/dev/null || true
         sleep 1
         /bin/rm -rf /Applications/RustDesk.app
         /usr/bin/ditto \(shq(staged.path)) /Applications/RustDesk.app
@@ -514,7 +514,7 @@ final class Model: ObservableObject {
         # Configuración del servidor: colocarla ANTES de arrancar nada
         /bin/launchctl bootout system /Library/LaunchDaemons/com.carriez.RustDesk_service.plist 2>/dev/null || true
         /bin/launchctl bootout gui/\(getuid()) /Library/LaunchAgents/com.carriez.RustDesk_server.plist 2>/dev/null || true
-        /usr/bin/pkill -f 'RustDesk.app/Contents/MacOS' 2>/dev/null || true
+        /usr/bin/pkill -f '/Applications/RustDesk.app/Contents/MacOS' 2>/dev/null || true
         /bin/sleep 1
         /bin/mkdir -p \(shq(cfgDir))
         [ -f \(shq(cfgDir + "/RustDesk2.toml")) ] && /bin/cp \(shq(cfgDir + "/RustDesk2.toml")) \(shq(cfgDir + "/RustDesk2.toml.backup-" + String(Int(Date().timeIntervalSince1970)))) || true

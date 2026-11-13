@@ -19,8 +19,8 @@ echo "- Parando servicios y procesos…"
 sudo launchctl bootout system /Library/LaunchDaemons/com.carriez.RustDesk_service.plist 2>/dev/null
 launchctl bootout "gui/$(id -u)" /Library/LaunchAgents/com.carriez.RustDesk_server.plist 2>/dev/null
 launchctl bootout "gui/$(id -u)" "$H/Library/LaunchAgents/com.carriez.RustDesk_server.plist" 2>/dev/null
-sudo pkill -f "RustDesk.app/Contents/MacOS" 2>/dev/null; sleep 1
-sudo pkill -9 -f "RustDesk.app/Contents/MacOS" 2>/dev/null
+sudo pkill -f "/Applications/RustDesk.app/Contents/MacOS" 2>/dev/null; sleep 1
+sudo pkill -9 -f "/Applications/RustDesk.app/Contents/MacOS" 2>/dev/null
 
 echo "- Borrando app y servicios del sistema…"
 sudo rm -rf /Applications/RustDesk.app
