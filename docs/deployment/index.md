@@ -1,6 +1,11 @@
 # Scripts de despliegue
 
-Scripts automatizados para instalar y configurar RustDesk en equipos remotos.
+Instaladores para poner RustDesk en equipos remotos, ya configurado con tu servidor.
+
+!!! tip "macOS: instalador gráfico"
+    En Mac hay un **instalador con asistente** que se configura con un archivo `.rdconfig` por destinatario,
+    instala también el servicio del sistema y fija la contraseña. Es el método recomendado:
+    [Guía macOS](macos.md). El `config.txt` de abajo se usa en Windows y en el script antiguo de Mac.
 
 ## ¿Qué incluyen?
 

@@ -35,6 +35,22 @@ Incrustado en la app (opcional) → el que se abre con doble clic / se arrastra 
 (p. ej. el DMG) → Escritorio → Descargas (el más reciente que sea válido). Al mirar Escritorio/Descargas
 macOS puede mostrar su aviso de acceso a esas carpetas; con doble clic o arrastrando no aparece.
 
+## Qué hace con privilegios (una sola petición de contraseña)
+Orden importante (ver `privilegedInstall` en `Sources/main.swift`):
+1. Cerrar RustDesk y copiar la app a `/Applications`.
+2. Colocar `RustDesk2.toml` **antes de arrancar nada** (si RustDesk arranca o se reinicia antes, guarda su
+   configuración por defecto encima).
+3. Escribir y cargar los plists del servicio (`com.carriez.RustDesk_service` en `/Library/LaunchDaemons`,
+   `com.carriez.RustDesk_server` en `/Library/LaunchAgents`).
+4. Fijar la contraseña permanente con `RustDesk --password`, que **solo funciona con el servicio en marcha**
+   (reintenta hasta que queda guardada).
+Los `pkill` deben apuntar a `/Applications/RustDesk.app/...`: un patrón más amplio mata al propio instalador,
+que corre desde `/Volumes/Instalar RustDesk/`.
+
+## Desinstalador
+`Desinstalar RustDesk.command` (va en el DMG) quita app, servicio, ajustes, logs y restos. No resetea de forma
+fiable los permisos de Accesibilidad/Grabación de pantalla: macOS los recuerda entre reinstalaciones.
+
 ## Qué versión de RustDesk instala
 Consulta GitHub (versiones estables con DMG para la arquitectura del Mac, de más reciente a más
 antigua), descarga, lee `LSMinimumSystemVersion` del `RustDesk.app` y verifica su firma. Si el macOS del
@@ -60,7 +76,7 @@ Requisitos: Xcode (el script usa su `swiftc`: en `/Library/Developer/Toolchains`
 ### Notarización
 `build.sh` notariza y grapa si encuentra el perfil de `notarytool` (`NOTARY_PROFILE`, por defecto `notary`;
 `SKIP_NOTARIZE=1` para saltarla). Sin notarizar, macOS avisa de «desarrollador no verificado» (clic derecho → Abrir).
-Crear el perfil una vez: `xcrun notarytool store-credentials "notary" --apple-id <ID> --team-id <TEAM>`
+En esta máquina se usa `NOTARY_PROFILE=cephaloplan`. Crear un perfil nuevo una vez: `xcrun notarytool store-credentials "notary" --apple-id <ID> --team-id <TEAM>`
 (contraseña específica de app de appleid.apple.com). Si Apple responde **403 «agreement missing or expired»**,
 hay que aceptar el acuerdo vigente en developer.apple.com/account.
 
