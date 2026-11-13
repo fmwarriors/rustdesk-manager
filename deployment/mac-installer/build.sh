@@ -73,11 +73,11 @@ codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP"
 codesign --verify --strict --verbose=1 "$APP"
 
 echo "==> Creando DMG"
-STAGE="$BUILD/dmg"; mkdir -p "$STAGE"; cp -R "$APP" "$STAGE/"; cp Plantilla.rdconfig "$STAGE/"
+STAGE="$BUILD/dmg"; mkdir -p "$STAGE"; cp -R "$APP" "$STAGE/"; cp Plantilla.rdconfig "$STAGE/"; cp "Desinstalar RustDesk.command" "$STAGE/"
 create-dmg --volname "Instalar RustDesk" \
-  --window-pos 200 160 --window-size 560 340 --icon-size 110 \
+  --window-pos 200 160 --window-size 700 340 --icon-size 110 \
   --icon "$APP_NAME.app" 150 150 --hide-extension "$APP_NAME.app" \
-  --icon "Plantilla.rdconfig" 410 150 \
+  --icon "Plantilla.rdconfig" 330 150 --icon "Desinstalar RustDesk.command" 540 150 \
   "$DMG" "$STAGE" >/dev/null
 codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG"
 
