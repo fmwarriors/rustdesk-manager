@@ -480,6 +480,21 @@
                     </div>
                 </div>
 
+                <!-- Configuración rápida desde un archivo .rdconfig -->
+                <div class="space-y-3 border-t dark:border-gray-700 pt-4">
+                    <h4 class="font-medium text-gray-800 dark:text-white flex items-center gap-2">
+                        <i class="fas fa-file-import text-indigo-500"></i>
+                        {{ t.rdimport_title }}
+                    </h4>
+                    <button type="button" onclick="document.getElementById('rdconfigFile').click()"
+                        class="w-full bg-indigo-50 dark:bg-gray-700 text-indigo-700 dark:text-indigo-200 py-2 px-4 rounded-lg hover:bg-indigo-100 dark:hover:bg-gray-600 transition flex items-center justify-center gap-2">
+                        <i class="fas fa-file-import"></i>
+                        {{ t.rdimport_btn }}
+                    </button>
+                    <input type="file" id="rdconfigFile" accept=".rdconfig,.txt" class="hidden" onchange="importRdconfig(this)">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t.rdimport_hint }}</p>
+                </div>
+
                 <!-- Servidor -->
                 <div class="space-y-4 border-t dark:border-gray-700 pt-4">
                     <h4 class="font-medium text-gray-800 dark:text-white flex items-center gap-2">
@@ -1058,6 +1073,26 @@
             } catch (e) {
                 showToast(T.settings_save_error, 'error');
             }
+        }
+
+        // Importar un archivo .rdconfig: rellena servidor de IDs, Key y contraseña por defecto y guarda
+        async function importRdconfig(input) {
+            const file = input.files[0];
+            input.value = '';
+            if (!file) return;
+            const vals = {};
+            (await file.text()).split(/\r?\n/).forEach(line => {
+                const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/);
+                if (m) vals[m[1]] = m[2];
+            });
+            if (!vals.SERVIDOR || !vals.KEY || !vals.CONTRASENA) {
+                showToast(T.rdimport_err, 'error');
+                return;
+            }
+            document.getElementById('settingsIdServer').value = vals.SERVIDOR;
+            document.getElementById('settingsKey').value = vals.KEY;
+            document.getElementById('settingsDefaultPassword').value = vals.CONTRASENA;
+            await saveSettings();
         }
 
         // Crear archivo .rdconfig para el instalador de RustDesk (con los valores del formulario)

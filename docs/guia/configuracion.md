@@ -2,7 +2,16 @@
 
 Después de instalar RustDesk Manager, configura el servidor de IDs para ver qué equipos están online.
 
-## Pasos
+## Opción rápida: importar un archivo `.rdconfig`
+
+Si quien te da el servidor te ha enviado un archivo `.rdconfig` (el mismo que usa el instalador de RustDesk):
+
+1. Abre **Ajustes**.
+2. Pulsa **Importar archivo .rdconfig** y elige el archivo.
+
+Se rellenan y guardan solos el **Servidor de IDs**, la **Key** y la **Contraseña por defecto**. No tienes que escribir nada ni tocar los campos de API.
+
+## Pasos (configuración manual)
 
 1. Abre **Ajustes** (icono de engranaje en la esquina superior derecha)
 2. En la sección **Servidor**, introduce:
