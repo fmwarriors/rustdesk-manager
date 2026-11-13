@@ -6,7 +6,7 @@ Aplicación de escritorio Electron para gestionar conexiones RustDesk, compilada
 - **Repositorio**: https://github.com/angelbonet/rustdesk-manager
 - **Fork**: https://github.com/fmwarriors/rustdesk-manager (sincronizar con `gh repo sync fmwarriors/rustdesk-manager`)
 - **Docs (GitHub Pages)**: https://angelbonet.github.io/rustdesk-manager/
-- **Versión actual**: 1.1.1
+- **Versión actual**: 1.1.2
 
 ## Stack
 - **Frontend**: HTML + Tailwind CSS + Nunjucks templates

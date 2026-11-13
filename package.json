@@ -1,6 +1,6 @@
 {
   "name": "rustdesk-manager",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Gestor de conexiones RustDesk",
   "main": "electron/main.js",
   "author": "abDatabase <angel@abdatabase.com>",
