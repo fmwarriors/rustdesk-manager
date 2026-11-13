@@ -1,0 +1,8 @@
+{
+  "name": "Clínica Ejemplo",
+  "server": "rustdesk.tudominio.com",
+  "key": "TU_CLAVE_PUBLICA_DEL_SERVIDOR=",
+  "password": "contraseña_permanente_de_acceso",
+  "pushover_token": "",
+  "pushover_user": ""
+}

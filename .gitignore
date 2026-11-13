@@ -36,3 +36,7 @@ RustDeskManager_ProductionAssets.zip
 
 # MkDocs build
 site/
+
+# Instalador de macOS: configuraciones por cliente (contienen contraseñas) y salida
+deployment/mac-installer/clientes/*.json
+deployment/mac-installer/dist/
