@@ -24,7 +24,7 @@ server/config.js          — gestión configuración
 server/i18n.js            — traducciones (es, en, fr)
 templates/index.html      — UI principal
 deployment/mac/           — instalador macOS
-deployment/windows/       — instalador Windows
+deployment/windows/       — instalador Windows (.exe NSIS + install_rustdesk_windows.ps1)
 docs/                     — documentación MkDocs Material
 ```
 
@@ -52,6 +52,7 @@ npm run build:all         # compilar ambos
 - **IMPORTANTE**: NO configurar "Servidor API" en los clientes RustDesk — causa error "deadline has elapsed". El estado online lo obtiene RustDesk Manager preguntando directamente a hbbs.
 
 ## Instaladores de deployment
+> **Vigentes**: `deployment/mac-installer/` (DMG con asistente SwiftUI) y `deployment/windows/` (`Instalar RustDesk.exe`, NSIS). Ambos usan un archivo `.rdconfig` por destinatario (servidor, key y contraseña; se crea desde Ajustes del Manager). Detalle y trampas ya resueltas en `docs/deployment/`. Lo de `config.txt` de abajo es el método antiguo (`deployment/mac/`).
 Cada carpeta (`mac/`, `windows/`) es autónoma y se distribuye al usuario final:
 - Contiene su propio `config.txt.example` → el usuario copia a `config.txt` y rellena los datos
 - `config.txt` está en `.gitignore` (nunca se sube al repo)
