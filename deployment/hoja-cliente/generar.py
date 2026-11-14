@@ -2,10 +2,11 @@
 """
 Genera la hoja de instrucciones para una clínica (HTML + PDF), con la parte de Mac y la de Windows.
 
-Uso:   ./generar.py "Clínica Padrón" [Padron]  [carpeta_salida]
+Uso:   ./generar.py "Clínica Padrón" [Padron]  [carpeta_salida]  [--solo windows|mac]
          1.er argumento: nombre que verá el cliente
          2.º  argumento: nombre del archivo .rdconfig sin extensión (por defecto, el nombre sin tildes ni espacios)
          3.er argumento: carpeta de salida (por defecto, la actual)
+         --solo windows|mac: hoja con un único sistema (por defecto, los dos)
 
 No lleva contraseñas ni datos del servidor: el .rdconfig se envía aparte. Nada al cliente sin que Ángel la apruebe.
 El PDF se genera con Google Chrome (modo headless) si está instalado.
@@ -16,9 +17,13 @@ def plano(s):
     s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode()
     return re.sub(r'[^A-Za-z0-9]+', '', s.replace('Clínica', '').replace('Clinica', '')) or 'Clinica'
 
-nombre = sys.argv[1] if len(sys.argv) > 1 else "tu clínica"
-cfg = (sys.argv[2] if len(sys.argv) > 2 else plano(nombre)) + ".rdconfig"
-salida = sys.argv[3] if len(sys.argv) > 3 else "."
+args = sys.argv[1:]
+solo = None
+if "--solo" in args:
+    i = args.index("--solo"); solo = args[i + 1].lower(); del args[i:i + 2]
+nombre = args[0] if len(args) > 0 else "tu clínica"
+cfg = (args[1] if len(args) > 1 else plano(nombre)) + ".rdconfig"
+salida = args[2] if len(args) > 2 else "."
 N = html.escape(nombre); C = html.escape(cfg)
 
 HTML = f"""<!DOCTYPE html>
@@ -62,14 +67,15 @@ HTML = f"""<!DOCTYPE html>
 
   <h2>Qué recibes</h2>
   <table>
-    <tr><th>Instalador de RustDesk</th><td><span class="so mac">Mac</span> <code>Instalar-RustDesk-Mac.dmg</code><br><span class="so win">Windows</span> <code>Instalar-RustDesk-Windows.exe</code><br>Se usa en <strong>cada ordenador</strong> al que quieras poder conectarte.</td></tr>
+    <tr><th>Instalador de RustDesk</th><td><!--M--><span class="so mac">Mac</span> <code>Instalar-RustDesk-Mac.dmg</code><br><!--/M--><!--W--><span class="so win">Windows</span> <code>Instalar-RustDesk-Windows.exe</code><br><!--/W-->Se usa en <strong>cada ordenador</strong> al que quieras poder conectarte.</td></tr>
     <tr><th>{C}</th><td>El archivo con la configuración de tu clínica (servidor, clave y contraseña). Es privado: no lo reenvíes ni lo publiques. Te llega <strong>por separado</strong>.</td></tr>
-    <tr><th>RustDesk Manager</th><td><span class="so mac">Mac</span> <code>RustDesk-Manager-1.1.3-universal.dmg</code><br><span class="so win">Windows</span> <code>RustDesk-Manager-Setup-1.1.3.exe</code><br>El panel desde el que te conectas. Se instala <strong>solo en tu ordenador de trabajo</strong>.</td></tr>
+    <tr><th>RustDesk Manager</th><td><!--M--><span class="so mac">Mac</span> <code>RustDesk-Manager-1.1.3-universal.dmg</code><br><!--/M--><!--W--><span class="so win">Windows</span> <code>RustDesk-Manager-Setup-1.1.3.exe</code><br><!--/W-->El panel desde el que te conectas. Se instala <strong>solo en tu ordenador de trabajo</strong>.</td></tr>
   </table>
 
   <h2>1. En cada ordenador al que quieras conectarte</h2>
   <p>Copia al ordenador el instalador de RustDesk y <code>{C}</code>, déjalos juntos (o en el Escritorio) y sigue los pasos de tu sistema.</p>
 
+  <!--W-->
   <h3><span class="so win">Windows</span> Ordenadores con Windows 10 u 11</h3>
   <ol>
     <li>Haz <strong>doble clic en <code>Instalar-RustDesk-Windows.exe</code></strong>.</li>
@@ -79,6 +85,8 @@ HTML = f"""<!DOCTYPE html>
     <li>Espera uno o dos minutos. Al terminar verás el <strong>ID</strong> del ordenador (un número de 9 o 10 dígitos). <strong>Anótalo</strong>: lo necesitas en el paso 3. Pulsa <strong>Cerrar</strong>.</li>
   </ol>
 
+  <!--/W-->
+  <!--M-->
   <h3><span class="so mac">Mac</span> Ordenadores Mac</h3>
   <ol>
     <li>Abre <code>Instalar-RustDesk-Mac.dmg</code> y ejecuta <strong>Instalar RustDesk</strong>. Si macOS pregunta si quieres abrirla, pulsa <strong>Abrir</strong>.</li>
@@ -87,10 +95,12 @@ HTML = f"""<!DOCTYPE html>
     <li>Al terminar verás el <strong>ID</strong> del ordenador. <strong>Anótalo</strong>: lo necesitas en el paso 3.</li>
   </ol>
 
+  <!--/M-->
+
   <h2>2. En tu ordenador de trabajo: instalar el Manager</h2>
   <ol>
-    <li><span class="so mac">Mac</span> Abre el <code>.dmg</code> y arrastra la aplicación a <strong>Aplicaciones</strong>. La primera vez pulsa <strong>Abrir</strong> en el aviso de macOS.<br>
-        <span class="so win">Windows</span> Haz doble clic en <code>RustDesk-Manager-Setup-1.1.3.exe</code> (si sale <em>«Windows protegió su PC»</em>: <strong>Más información → Ejecutar de todos modos</strong>) y sigue el asistente.</li>
+    <li><!--M--><span class="so mac">Mac</span> Abre el <code>.dmg</code> y arrastra la aplicación a <strong>Aplicaciones</strong>. La primera vez pulsa <strong>Abrir</strong> en el aviso de macOS.<br>
+        <!--/M--><!--W--><span class="so win">Windows</span> Haz doble clic en <code>RustDesk-Manager-Setup-1.1.3.exe</code> (si sale <em>«Windows protegió su PC»</em>: <strong>Más información → Ejecutar de todos modos</strong>) y sigue el asistente.<!--/W--></li>
     <li>Abre el Manager y entra en <strong>Ajustes</strong> (icono del engranaje).</li>
     <li>Pulsa <strong>Importar archivo .rdconfig</strong> y elige <code>{C}</code>.</li>
   </ol>
@@ -114,8 +124,8 @@ HTML = f"""<!DOCTYPE html>
   <ul>
     <li><strong>Un equipo sale en gris:</strong> está apagado, sin internet, o RustDesk no se está ejecutando en él.</li>
     <li><strong>«Contraseña incorrecta»:</strong> el equipo no tiene la contraseña de tu clínica. Vuelve a instalar RustDesk en él con tu <code>{C}</code>.</li>
-    <li><strong>Pantalla negra o el ratón no responde (Mac):</strong> faltan permisos en <em>Privacidad y seguridad</em> del ordenador remoto.</li>
-    <li><strong>El instalador de Windows se queda parado o da error:</strong> comprueba que el ordenador tiene internet y envíanos el archivo <code>%TEMP%\\instalar_rustdesk.log</code> (pega esa ruta en la barra del Explorador de archivos).</li>
+    <!--M--><li><strong>Pantalla negra o el ratón no responde (Mac):</strong> faltan permisos en <em>Privacidad y seguridad</em> del ordenador remoto.</li><!--/M-->
+    <!--W--><li><strong>El instalador de Windows se queda parado o da error:</strong> comprueba que el ordenador tiene internet y envíanos el archivo <code>%TEMP%\\instalar_rustdesk.log</code> (pega esa ruta en la barra del Explorador de archivos).</li><!--/W-->
     <li><strong>El antivirus bloquea el instalador:</strong> avísanos antes de desactivarlo; podemos darte otra forma de instalarlo.</li>
   </ul>
 
@@ -125,8 +135,15 @@ HTML = f"""<!DOCTYPE html>
 </html>
 """
 
+if solo in ("windows", "mac"):
+    quitar, dejar = ("M", "W") if solo == "windows" else ("W", "M")
+    HTML = re.sub(rf"<!--{quitar}-->.*?<!--/{quitar}-->", "", HTML, flags=re.S)
+    # sin etiquetas de sistema operativo cuando solo hay uno
+    HTML = re.sub(r'<span class="so (mac|win)">[^<]*</span> ?', "", HTML)
+    HTML = HTML.replace(" y sigue los pasos de tu sistema.", " y sigue estos pasos.")
+HTML = HTML.replace("<!--M-->", "").replace("<!--/M-->", "").replace("<!--W-->", "").replace("<!--/W-->", "")
 os.makedirs(salida, exist_ok=True)
-base = os.path.join(salida, f"Instrucciones - {nombre}")
+base = os.path.join(salida, f"Instrucciones - {nombre}" + (f" ({solo.capitalize()})" if solo else ""))
 with open(base + ".html", "w", encoding="utf-8") as f:
     f.write(HTML)
 print("HTML:", base + ".html")
