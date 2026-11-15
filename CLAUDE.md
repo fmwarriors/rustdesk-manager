@@ -52,12 +52,18 @@ npm run build:all         # compilar ambos
 - **IMPORTANTE**: NO configurar "Servidor API" en los clientes RustDesk — causa error "deadline has elapsed". El estado online lo obtiene RustDesk Manager preguntando directamente a hbbs.
 
 ## Instaladores de deployment
-> **Vigentes**: `deployment/mac-installer/` (DMG con asistente SwiftUI) y `deployment/windows/` (`Instalar RustDesk.exe`, NSIS). Ambos usan un archivo `.rdconfig` por destinatario (servidor, key y contraseña; se crea desde Ajustes del Manager). Detalle y trampas ya resueltas en `docs/deployment/`. Lo de `config.txt` de abajo es el método antiguo (`deployment/mac/`).
+> **Vigentes**: `deployment/mac-installer/` (DMG con asistente SwiftUI) y `deployment/windows/` (`Instalar RustDesk.exe` y `Desinstalar RustDesk.exe`, NSIS; el desinstalador está compilado pero SIN probar). Ambos usan un archivo `.rdconfig` por destinatario (servidor, key y contraseña; se crea desde Ajustes del Manager). Detalle y trampas ya resueltas en `docs/deployment/`. Lo de `config.txt` de abajo es el método antiguo (`deployment/mac/`).
 Cada carpeta (`mac/`, `windows/`) es autónoma y se distribuye al usuario final:
 - Contiene su propio `config.txt.example` → el usuario copia a `config.txt` y rellena los datos
 - `config.txt` está en `.gitignore` (nunca se sube al repo)
 - Los scripts descargan automáticamente la última versión de RustDesk desde GitHub
 - Envían notificación Pushover con ID y nombre del equipo al completar
+
+### Estado de las pruebas (2026-11-15)
+- **Mac** (DMG con asistente SwiftUI, `Desinstalar RustDesk.command`): probado en LocalLLM, incluido reiniciar el Mac (RustDesk vuelve solo con su icono). No hace falta ayudante de arranque.
+- **Windows**: `Instalar RustDesk.exe` probado en Windows 11 (silencioso y gráfico). **Sin verificar**: el Manager de Windows 1.1.3 (`RustDesk-Manager-Setup-1.1.3.exe`; en la VM da «No se puede cerrar RustDesk Manager» al actualizar encima de una instalación antigua) y `Desinstalar RustDesk.exe`. No enviar el Manager de Windows a clientes hasta probarlo en una VM limpia. Windows 10 sin probar.
+- Sin firma Authenticode (de pago, descartada): SmartScreen avisa.
+- VM de pruebas Windows 11 y LocalLLM: ver memoria `reference_windows_test_vm` / `reference_mac_test_localllm`.
 
 ## MkDocs
 - Config: `mkdocs.yml`

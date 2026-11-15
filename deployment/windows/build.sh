@@ -23,6 +23,7 @@ DEFS=()
 [ -f "$ICON" ] && DEFS+=("-DAPP_ICON=$ICON")
 
 NSISDIR="$NSIS_DIR" NSISCONFDIR="$NSIS_DIR" "$MAKENSIS" ${DEFS[@]+"${DEFS[@]}"} installer.nsi
+NSISDIR="$NSIS_DIR" NSISCONFDIR="$NSIS_DIR" "$MAKENSIS" ${DEFS[@]+"${DEFS[@]}"} desinstalador.nsi
 echo
-echo "Listo: $(pwd)/dist/Instalar RustDesk.exe"
+echo "Listo: $(pwd)/dist/Instalar RustDesk.exe y $(pwd)/dist/Desinstalar RustDesk.exe"
 echo "(sin firmar: Windows SmartScreen avisará la primera vez; ver la documentación)"
