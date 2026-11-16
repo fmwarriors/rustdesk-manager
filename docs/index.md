@@ -51,9 +51,10 @@ Instala tu propio servidor RustDesk self-hosted.
 
 ### :material-script: Desplegar clientes
 
-Scripts automatizados para instalar RustDesk en equipos remotos.
+Instaladores con asistente gráfico para Mac y Windows, al estilo TeamViewer o AnyDesk: el cliente hace doble
+clic y RustDesk queda instalado y configurado con tu servidor.
 
-[:octicons-arrow-right-24: Scripts de despliegue](deployment/index.md)
+[:octicons-arrow-right-24: Instaladores de despliegue](deployment/index.md)
 
 ## Arquitectura del sistema
 

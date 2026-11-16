@@ -1,11 +1,43 @@
-# Scripts de despliegue
+# Instaladores de despliegue
 
-Instaladores para poner RustDesk en equipos remotos, ya configurado con tu servidor.
+Poner RustDesk en los equipos de tus clientes **ya configurado con tu servidor**, con la misma comodidad que las
+herramientas comerciales como **TeamViewer** o **AnyDesk**: el cliente hace doble clic, pulsa *Instalar* y el
+equipo queda listo para recibir soporte.
 
-!!! tip "macOS: instalador gráfico"
-    En Mac hay un **instalador con asistente** que se configura con un archivo `.rdconfig` por destinatario,
-    instala también el servicio del sistema y fija la contraseña. Es el método recomendado:
-    [Guía macOS](macos.md). El `config.txt` de abajo se usa en Windows y en el script antiguo de Mac.
+## La idea: un instalador y una «licencia»
+
+- **Un instalador igual para todos**, con asistente gráfico, que no lleva ningún dato dentro.
+- **Un archivo `.rdconfig` por destinatario** (servidor, Key y contraseña), como una licencia. Se genera con un
+  clic desde *Ajustes → Archivo para el instalador de RustDesk* en RustDesk Manager y se envía solo a su dueño.
+
+| | macOS | Windows |
+|---|---|---|
+| Instalador | `Instalar-RustDesk-Mac.dmg` (asistente SwiftUI) | `Instalar-RustDesk-Windows.exe` (asistente NSIS) |
+| Desinstalador | `Desinstalar RustDesk.command` | `Desinstalar RustDesk.exe` |
+| Guía | [macOS](macos.md) | [Windows](windows.md) |
+
+## Qué hacen por el usuario
+
+1. Descargan la última versión de RustDesk y **verifican su firma digital**.
+2. Instalan RustDesk y su **servicio del sistema** (arranca con el equipo, acceso desatendido).
+3. Configuran **tu servidor y tu Key** y fijan la **contraseña permanente**.
+4. Muestran el **ID del equipo** al terminar y, opcionalmente, te avisan por **Pushover**.
+5. En macOS, guían por los permisos del sistema (Accesibilidad, Grabación de pantalla, Acceso total al disco).
+
+## Estado de las pruebas
+
+- **macOS**: probado, incluido reiniciar el Mac (RustDesk vuelve solo).
+- **Windows**: instalador probado en Windows 11 (silencioso y gráfico). El **desinstalador** y Windows 10 están
+  **sin probar**.
+- Ninguno está firmado con certificado de pago (Apple Developer ID / Authenticode): macOS y SmartScreen avisan la
+  primera vez y hay que confirmar la ejecución.
+
+!!! note "Método antiguo"
+    Debajo se describe el método anterior, basado en scripts y un `config.txt` (carpetas `deployment/mac/` y
+    `deployment/windows/` del repositorio). Se mantiene como alternativa, pero **los instaladores de arriba son el
+    método recomendado**.
+
+# Método antiguo: scripts y `config.txt`
 
 ## ¿Qué incluyen?
 

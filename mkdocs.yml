@@ -70,7 +70,7 @@ nav:
     - Configuración de red: servidor/red.md
     - HTTPS y seguridad: servidor/https.md
     - Mantenimiento: servidor/mantenimiento.md
-  - Scripts de Despliegue:
+  - Instaladores de Despliegue:
     - Visión general: deployment/index.md
     - Instalación en macOS: deployment/macos.md
     - Instalación en Windows: deployment/windows.md
