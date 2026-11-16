@@ -6,7 +6,7 @@ Aplicación de escritorio Electron para gestionar conexiones RustDesk, compilada
 - **Repositorio**: https://github.com/angelbonet/rustdesk-manager
 - **Fork**: https://github.com/fmwarriors/rustdesk-manager (sincronizar con `gh repo sync fmwarriors/rustdesk-manager`)
 - **Docs (GitHub Pages)**: https://angelbonet.github.io/rustdesk-manager/
-- **Versión actual**: 1.1.3
+- **Versión actual**: 1.1.3 (release v1.1.3 publicada con los instaladores; README y docs actualizados el 2026-11-16 con el enfoque «despliegue tipo TeamViewer»)
 
 ## Stack
 - **Frontend**: HTML + Tailwind CSS + Nunjucks templates
@@ -61,7 +61,8 @@ Cada carpeta (`mac/`, `windows/`) es autónoma y se distribuye al usuario final:
 
 ### Estado de las pruebas (2026-11-15)
 - **Mac** (DMG con asistente SwiftUI, `Desinstalar RustDesk.command`): probado en LocalLLM, incluido reiniciar el Mac (RustDesk vuelve solo con su icono). No hace falta ayudante de arranque.
-- **Windows**: `Instalar RustDesk.exe` probado en Windows 11 (silencioso y gráfico). **Sin verificar**: el Manager de Windows 1.1.3 (`RustDesk-Manager-Setup-1.1.3.exe`; en la VM da «No se puede cerrar RustDesk Manager» al actualizar encima de una instalación antigua) y `Desinstalar RustDesk.exe`. No enviar el Manager de Windows a clientes hasta probarlo en una VM limpia. Windows 10 sin probar.
+- **Windows**: `Instalar RustDesk.exe` probado en Windows 11 (silencioso y gráfico). **Manager de Windows 1.1.3 verificado el 2026-11-16** en la VM: arranca y, con la carpeta de datos limpia, empieza con 0 equipos (no trae nada del servidor). **Sin verificar**: actualizar encima de una instalación antigua (en la VM daba «No se puede cerrar RustDesk Manager») y `Desinstalar RustDesk.exe`. Windows 10 sin probar.
+- **Trampa de la VM**: arrastraba una base de datos de una versión antigua (<1.1.1, con sincronización automática del servidor): salían 675 «sin clasificar» y equipos `*.googleusercontent.com` (peers/escáneres registrados en hbbs). No es una fuga del 1.1.3: el paquete excluye `*.db` y `config.json`. Si se ve algo raro en la VM, borrar `%APPDATA%\rustdesk-manager\` y reabrir.
 - Sin firma Authenticode (de pago, descartada): SmartScreen avisa.
 - VM de pruebas Windows 11 y LocalLLM: ver memoria `reference_windows_test_vm` / `reference_mac_test_localllm`.
 
@@ -76,3 +77,4 @@ Cada carpeta (`mac/`, `windows/`) es autónoma y se distribuye al usuario final:
 
 ## Pendientes (futuro, sin prisa)
 - **Icono del Manager en Windows**: en la barra de tareas y en la ventana aparece el icono genérico de Electron, no el icono de la versión Mac (inspirado en el original de RustDesk). Visto el 2026-11-16 en la VM con el Manager 1.1.3. Revisar que `build/icon.ico` se aplique también al ejecutable instalado y a la ventana (`icon` en `BrowserWindow` de `electron/main.js`) y que el build de Windows lo incruste. Decidido no arreglarlo ahora.
+- **Contraste del elemento seleccionado** de la barra lateral («Todos los equipos»): texto azul oscuro sobre fondo azul, casi ilegible (visto 2026-11-16). Menor; Ángel dijo que no le importa mucho.
