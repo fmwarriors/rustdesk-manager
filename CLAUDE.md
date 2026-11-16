@@ -73,3 +73,6 @@ Cada carpeta (`mac/`, `windows/`) es autónoma y se distribuye al usuario final:
 ## Git
 - Rama principal: `master`
 - Tras cada push a `angelbonet`, sincronizar fork: `gh repo sync fmwarriors/rustdesk-manager`
+
+## Pendientes (futuro, sin prisa)
+- **Icono del Manager en Windows**: en la barra de tareas y en la ventana aparece el icono genérico de Electron, no el icono de la versión Mac (inspirado en el original de RustDesk). Visto el 2026-11-16 en la VM con el Manager 1.1.3. Revisar que `build/icon.ico` se aplique también al ejecutable instalado y a la ventana (`icon` en `BrowserWindow` de `electron/main.js`) y que el build de Windows lo incruste. Decidido no arreglarlo ahora.
